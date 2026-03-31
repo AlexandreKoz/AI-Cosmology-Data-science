@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cosmosim/schemas/provenance_schema_v1.json",
+  "title": "CosmoSim provenance schema v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "cosmosim_version",
+    "git",
+    "build",
+    "platform",
+    "runtime",
+    "inputs",
+    "used_values_hash_sha256"
+  ],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "cosmosim_version": {"type": "string"},
+    "git": {
+      "type": "object",
+      "required": ["commit_sha", "commit_dirty", "branch"],
+      "properties": {
+        "commit_sha": {"type": "string"},
+        "commit_dirty": {"type": "boolean"},
+        "branch": {"type": "string"},
+        "remote_url": {"type": ["string", "null"]}
+      }
+    },
+    "build": {
+      "type": "object",
+      "required": ["compiler_id", "compiler_version", "cxx_standard", "feature_registry"],
+      "properties": {
+        "compiler_id": {"type": "string"},
+        "compiler_version": {"type": "string"},
+        "cxx_standard": {"type": "string"},
+        "build_type": {"type": "string"},
+        "compile_flags": {"type": "array", "items": {"type": "string"}},
+        "link_flags": {"type": "array", "items": {"type": "string"}},
+        "feature_registry": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["feature_key", "enabled", "build_option", "build_value", "abi_impact"],
+            "properties": {
+              "feature_key": {"type": "string"},
+              "enabled": {"type": "boolean"},
+              "build_option": {"type": "string"},
+              "build_value": {"type": "string"},
+              "abi_impact": {"enum": ["none", "io_schema", "state_layout", "numerics"]}
+            }
+          }
+        }
+      }
+    },
+    "platform": {
+      "type": "object",
+      "required": ["hostname", "os", "arch", "cpu_model"],
+      "properties": {
+        "hostname": {"type": "string"},
+        "os": {"type": "string"},
+        "arch": {"type": "string"},
+        "cpu_model": {"type": "string"}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["utc_start_iso8601", "omp_threads", "env_subset"],
+      "properties": {
+        "utc_start_iso8601": {"type": "string"},
+        "mpi_world_size": {"type": "integer"},
+        "omp_threads": {"type": "integer"},
+        "env_subset": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "required": ["config_hashes_sha256", "argv"],
+      "properties": {
+        "config_hashes_sha256": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "sha256"],
+            "properties": {
+              "path": {"type": "string"},
+              "sha256": {"type": "string"}
+            }
+          }
+        },
+        "profile_name": {"type": ["string", "null"]},
+        "argv": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "used_values_hash_sha256": {"type": "string"},
+    "checkpoint_parent": {"type": ["string", "null"]}
+  },
+  "additionalProperties": false
+}

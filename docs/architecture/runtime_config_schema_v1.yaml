@@ -1,0 +1,114 @@
+schema_id: cosmosim.runtime_config
+schema_version: 1.0.0
+description: >
+  Typed runtime configuration contract for Phase-I. Inputs from param.txt, YAML,
+  or JSON must normalize to this schema before simulation startup.
+
+sections:
+  run:
+    type: object
+    required: [run_name, output_root, random_seed_u64, deterministic_mode]
+    properties:
+      run_name: {type: string, pattern: '^[a-zA-Z0-9_.-]+$'}
+      output_root: {type: string}
+      random_seed_u64: {type: uint64}
+      deterministic_mode: {type: bool}
+      profile_name: {type: string, nullable: true}
+
+  cosmology:
+    type: object
+    required: [h0_code, omega_m, omega_lambda, omega_b]
+    properties:
+      h0_code: {type: float64, min_inclusive: 0.0}
+      omega_m: {type: float64, min_inclusive: 0.0, max_inclusive: 2.0}
+      omega_lambda: {type: float64, min_inclusive: 0.0, max_inclusive: 2.0}
+      omega_b: {type: float64, min_inclusive: 0.0, max_inclusive: 1.0}
+
+  time_integrator:
+    type: object
+    required: [a_start, a_end, dt_max_code, cfl_number]
+    properties:
+      a_start: {type: float64, min_exclusive: 0.0}
+      a_end: {type: float64, min_exclusive: 0.0}
+      dt_max_code: {type: float64, min_exclusive: 0.0}
+      cfl_number: {type: float64, min_exclusive: 0.0, max_inclusive: 1.0}
+
+  mesh:
+    type: object
+    required: [box_size_comoving_mpc, base_nx, base_ny, base_nz]
+    properties:
+      box_size_comoving_mpc: {type: float64, min_exclusive: 0.0, units: comoving_mpc}
+      base_nx: {type: int64, min_inclusive: 1}
+      base_ny: {type: int64, min_inclusive: 1}
+      base_nz: {type: int64, min_inclusive: 1}
+
+  physics:
+    type: object
+    required: [gravity_enabled, hydro_enabled]
+    properties:
+      gravity_enabled: {type: bool}
+      hydro_enabled: {type: bool}
+      cooling_enabled: {type: bool, default: false}
+      feedback_enabled: {type: bool, default: false}
+
+  io:
+    type: object
+    required: [snapshot, checkpoint]
+    properties:
+      snapshot:
+        type: object
+        required: [interval_steps]
+        properties:
+          interval_steps: {type: int64, min_inclusive: 1}
+      checkpoint:
+        type: object
+        required: [interval_steps, compression]
+        properties:
+          interval_steps: {type: int64, min_inclusive: 1}
+          compression: {type: enum, values: [none, zstd, gzip]}
+
+  restart:
+    type: object
+    required: [mode, strict_validation]
+    properties:
+      mode: {type: enum, values: [fresh, resume]}
+      path: {type: string, nullable: true}
+      strict_validation: {type: bool}
+
+  performance:
+    type: object
+    required: [omp_threads, omp_schedule]
+    properties:
+      omp_threads: {type: int64, min_inclusive: 1}
+      omp_schedule: {type: enum, values: [static, dynamic, guided]}
+
+  debug:
+    type: object
+    required: [nan_trap_enabled, deterministic_reductions]
+    properties:
+      nan_trap_enabled: {type: bool}
+      deterministic_reductions: {type: bool}
+      check_units_enabled: {type: bool, default: true}
+
+cross_field_rules:
+  - id: CFG_RULE_A_ORDER
+    when: "true"
+    assert: "time_integrator.a_start < time_integrator.a_end"
+    error_code: CFG_RANGE_A_START_END
+
+  - id: CFG_RULE_RESTART_PATH
+    when: "restart.mode == 'resume'"
+    assert: "restart.path != null"
+    error_code: CFG_REQUIRED_RESTART_PATH
+
+  - id: CFG_RULE_DET_SCHEDULE
+    when: "run.deterministic_mode == true"
+    assert: "performance.omp_schedule == 'static'"
+    error_code: CFG_DETERMINISM_SCHEDULE
+
+resolution_precedence:
+  - cli_overrides
+  - primary_config_file
+  - included_config_files
+  - selected_profile_defaults
+  - builtin_defaults
