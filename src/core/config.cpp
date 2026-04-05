@@ -10,6 +10,8 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "cosmosim/core/provenance.hpp"
+
 namespace cosmosim::core {
 namespace {
 
@@ -245,23 +247,6 @@ template <typename T>
     return SimulationMode::kIsolatedCluster;
   }
   throw ConfigError("key 'mode.mode': invalid mode '" + value + "'");
-}
-
-[[nodiscard]] std::uint64_t fnv1a64(const std::string& text) {
-  constexpr std::uint64_t k_offset_basis = 14695981039346656037ull;
-  constexpr std::uint64_t k_prime = 1099511628211ull;
-  std::uint64_t hash = k_offset_basis;
-  for (const unsigned char c : text) {
-    hash ^= c;
-    hash *= k_prime;
-  }
-  return hash;
-}
-
-[[nodiscard]] std::string toHex(std::uint64_t value) {
-  std::ostringstream stream;
-  stream << std::hex << std::setfill('0') << std::setw(16) << value;
-  return stream.str();
 }
 
 void validateConfig(const SimulationConfig& config) {
@@ -510,8 +495,8 @@ void validateConfig(const SimulationConfig& config) {
   frozen.provenance.config_hash_hex = "0000000000000000";
   frozen.normalized_text = buildNormalizedText(frozen);
 
-  frozen.provenance.config_hash = fnv1a64(frozen.normalized_text);
-  frozen.provenance.config_hash_hex = toHex(frozen.provenance.config_hash);
+  frozen.provenance.config_hash = stableConfigHash(frozen.normalized_text);
+  frozen.provenance.config_hash_hex = stableConfigHashHex(frozen.normalized_text);
   frozen.normalized_text = buildNormalizedText(frozen);
 
   return frozen;
