@@ -1,0 +1,16 @@
+# CosmoSim normalized configuration sketch (skeleton stage)
+# External style: GADGET/AREPO-like key/value text parameters.
+# Internal representation (future): typed, validated, normalized config object.
+
+schema_version = 1
+run_name = skeleton_smoke
+mode = zoom_in
+
+# Stable output naming anchor.
+output_stem = snapshot
+restart_stem = restart
+
+# Minimal timestep control placeholder.
+time_begin_code = 0.0
+time_end_code = 1.0
+max_global_steps = 8

@@ -1,0 +1,25 @@
+#pragma once
+
+#include <array>
+#include <string>
+#include <string_view>
+
+#include "cosmosim/amr/amr_module.hpp"
+#include "cosmosim/analysis/analysis_module.hpp"
+#include "cosmosim/core/module_registry.hpp"
+#include "cosmosim/core/version.hpp"
+#include "cosmosim/gravity/gravity_module.hpp"
+#include "cosmosim/hydro/hydro_module.hpp"
+#include "cosmosim/io/io_module.hpp"
+#include "cosmosim/parallel/parallel_module.hpp"
+#include "cosmosim/physics/physics_module.hpp"
+#include "cosmosim/utils/utils_module.hpp"
+
+namespace cosmosim {
+
+constexpr std::array<std::string_view, 8> k_layer_order = {
+    "core", "gravity", "hydro", "amr", "physics", "io", "analysis", "parallel"};
+
+std::string architectureSummary();
+
+}  // namespace cosmosim
