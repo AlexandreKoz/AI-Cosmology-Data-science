@@ -11,7 +11,6 @@
 #include "cosmosim/core/provenance.hpp"
 #include "cosmosim/core/units.hpp"
 #include "cosmosim/core/module_registry.hpp"
-#include "cosmosim/core/simulation_state.hpp"
 #include "cosmosim/core/version.hpp"
 #include "cosmosim/gravity/gravity_module.hpp"
 #include "cosmosim/hydro/hydro_module.hpp"
