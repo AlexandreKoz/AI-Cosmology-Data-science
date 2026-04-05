@@ -2,6 +2,8 @@
 
 #include <sstream>
 
+#include "cosmosim/core/build_config.hpp"
+
 namespace cosmosim::core {
 
 Version version() {
@@ -17,7 +19,10 @@ std::string versionString() {
 
 std::string buildProvenance() {
   std::ostringstream stream;
-  stream << "project=" << projectName() << ";version=" << versionString();
+  stream << "project=" << projectName() << ";version=" << versionString() << ";preset="
+         << COSMOSIM_BUILD_PRESET << ";build_type=" << COSMOSIM_BUILD_TYPE << ";mpi="
+         << COSMOSIM_ENABLE_MPI << ";hdf5=" << COSMOSIM_ENABLE_HDF5 << ";fftw="
+         << COSMOSIM_ENABLE_FFTW << ";cuda=" << COSMOSIM_ENABLE_CUDA;
   return stream.str();
 }
 

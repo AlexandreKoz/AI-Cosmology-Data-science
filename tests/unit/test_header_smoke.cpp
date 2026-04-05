@@ -16,5 +16,7 @@ int main() {
   assert(cosmosim::parallel::ParallelModule::name() == "parallel");
   assert(cosmosim::utils::UtilsModule::name() == "utils");
   assert(!cosmosim::architectureSummary().empty());
+  assert(!cosmosim::core::buildProvenance().empty());
+  assert(cosmosim::core::buildProvenance().find("preset=") != std::string::npos);
   return 0;
 }
