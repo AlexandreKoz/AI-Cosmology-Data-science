@@ -16,7 +16,7 @@ CosmoSim is a desktop-first and small-cluster-first cosmological simulation fram
 - `tests/unit/` — fast unit-level smoke checks.
 - `tests/integration/` — configure/link/runtime integration smoke checks.
 - `bench/` — lightweight benchmark/profiling hooks (`bench_*` convention).
-- `configs/` — sample normalized runtime configuration files.
+- `configs/` — sample normalized runtime configuration files (including cosmo cube / zoom-in / isolated modes).
 - `docs/` — architecture and developer placement guidance.
 - `scripts/` — workflow helpers.
 - `tools/` — standalone utility programs.
@@ -81,4 +81,4 @@ Before adding files, choose a module owner and place files by ownership:
 3. Internal-only helper headers: `src/<module>/internal/...`
 4. Never place solver ownership in `utils` unless ownership is truly cross-cutting and narrow.
 
-See `docs/developer_file_placement.md` and `docs/architecture.md` for more detail.
+See `docs/developer_file_placement.md`, `docs/architecture.md`, and `docs/configuration.md` for more detail.

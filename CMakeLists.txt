@@ -94,7 +94,8 @@ configure_file(
 
 add_library(cosmosim_core STATIC
   src/core/version.cpp
-  src/core/module_registry.cpp)
+  src/core/module_registry.cpp
+  src/core/config.cpp)
 
 target_include_directories(cosmosim_core
   PUBLIC
@@ -190,6 +191,15 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_integration_harness PRIVATE cosmosim_all)
   add_test(NAME integration_harness COMMAND test_integration_harness)
 
+  add_executable(test_unit_config_parser tests/unit/test_config_parser.cpp)
+  target_link_libraries(test_unit_config_parser PRIVATE cosmosim_all)
+  add_test(NAME unit_config_parser COMMAND test_unit_config_parser)
+
+  add_executable(test_integration_config_examples tests/integration/test_config_examples.cpp)
+  target_link_libraries(test_integration_config_examples PRIVATE cosmosim_all)
+  target_compile_definitions(test_integration_config_examples PRIVATE COSMOSIM_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+  add_test(NAME integration_config_examples COMMAND test_integration_config_examples)
+
   configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/integration/test_feature_summary.cmake.in"
     "${CMAKE_BINARY_DIR}/test_feature_summary.cmake"
@@ -210,6 +220,9 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
   target_link_libraries(bench_layout_smoke PRIVATE cosmosim_core)
   target_include_directories(bench_layout_smoke PRIVATE ${PROJECT_SOURCE_DIR}/src)
   target_compile_definitions(bench_layout_smoke PRIVATE COSMOSIM_BENCHMARK_BUILD=1)
+
+  add_executable(bench_config_parser bench/bench_config_parser.cpp)
+  target_link_libraries(bench_config_parser PRIVATE cosmosim_core)
 endif()
 
 cosmosim_generate_feature_summary(

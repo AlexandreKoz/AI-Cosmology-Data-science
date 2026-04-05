@@ -6,6 +6,7 @@
 
 #include "cosmosim/amr/amr_module.hpp"
 #include "cosmosim/analysis/analysis_module.hpp"
+#include "cosmosim/core/config.hpp"
 #include "cosmosim/core/module_registry.hpp"
 #include "cosmosim/core/version.hpp"
 #include "cosmosim/gravity/gravity_module.hpp"
