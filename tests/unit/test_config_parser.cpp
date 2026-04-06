@@ -89,6 +89,23 @@ void testInvalidEnumFails() {
   assert(threw);
 }
 
+void testBoundaryModeValidation() {
+  const std::string bad_config = "[mode]\nmode = cosmo_cube\nhydro_boundary = open\n";
+  bool threw = false;
+  try {
+    (void)cosmosim::core::loadFrozenConfigFromString(bad_config, "bad_boundary");
+  } catch (const cosmosim::core::ConfigError&) {
+    threw = true;
+  }
+  assert(threw);
+
+  const std::string isolated_ok =
+      "[mode]\nmode = isolated_cluster\nhydro_boundary = reflective\ngravity_boundary = isolated_monopole\n";
+  const auto frozen = cosmosim::core::loadFrozenConfigFromString(isolated_ok, "isolated_ok");
+  assert(frozen.config.mode.hydro_boundary == "reflective");
+  assert(frozen.config.mode.gravity_boundary == "isolated_monopole");
+}
+
 void testDefaultsCanonicalizationAndDeterminism() {
   const std::string first =
       "[mode]\nmode = cosmo_cube\n[output]\nrun_name = a\noutput_stem = snapshot\nrestart_stem = "
@@ -114,6 +131,7 @@ int main() {
   testMissingValueFails();
   testUnknownKeysFailUnlessCompatibilityEnabled();
   testInvalidEnumFails();
+  testBoundaryModeValidation();
   testDefaultsCanonicalizationAndDeterminism();
   return 0;
 }

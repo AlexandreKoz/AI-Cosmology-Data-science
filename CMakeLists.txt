@@ -101,6 +101,7 @@ add_library(cosmosim_core STATIC
   src/core/units.cpp
   src/core/simulation_state.cpp
   src/core/soa_storage.cpp
+  src/core/simulation_mode.cpp
   src/core/time_integration.cpp)
 
 target_include_directories(cosmosim_core
@@ -218,6 +219,10 @@ if(COSMOSIM_ENABLE_TESTS)
   add_executable(test_unit_time_integration tests/unit/test_time_integration.cpp)
   target_link_libraries(test_unit_time_integration PRIVATE cosmosim_core)
   add_test(NAME unit_time_integration COMMAND test_unit_time_integration)
+
+  add_executable(test_unit_simulation_mode tests/unit/test_simulation_mode.cpp)
+  target_link_libraries(test_unit_simulation_mode PRIVATE cosmosim_core)
+  add_test(NAME unit_simulation_mode COMMAND test_unit_simulation_mode)
   add_executable(test_unit_species_state_organization tests/unit/test_species_state_organization.cpp)
   target_link_libraries(test_unit_species_state_organization PRIVATE cosmosim_core)
   add_test(NAME unit_species_state_organization COMMAND test_unit_species_state_organization)
@@ -264,6 +269,11 @@ if(COSMOSIM_ENABLE_TESTS)
   add_executable(test_unit_tree_gravity tests/unit/test_tree_gravity.cpp)
   target_link_libraries(test_unit_tree_gravity PRIVATE cosmosim_gravity)
   add_test(NAME unit_tree_gravity COMMAND test_unit_tree_gravity)
+
+
+  add_executable(test_integration_simulation_mode_toy_runs tests/integration/test_simulation_mode_toy_runs.cpp)
+  target_link_libraries(test_integration_simulation_mode_toy_runs PRIVATE cosmosim_core)
+  add_test(NAME integration_simulation_mode_toy_runs COMMAND test_integration_simulation_mode_toy_runs)
 
   add_executable(test_integration_pm_periodic_mode tests/integration/test_pm_periodic_mode.cpp)
   target_link_libraries(test_integration_pm_periodic_mode PRIVATE cosmosim_gravity)
@@ -321,6 +331,9 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
 
   add_executable(bench_scheduler_overhead bench/bench_scheduler_overhead.cpp)
   target_link_libraries(bench_scheduler_overhead PRIVATE cosmosim_core)
+
+  add_executable(bench_mode_dispatch bench/bench_mode_dispatch.cpp)
+  target_link_libraries(bench_mode_dispatch PRIVATE cosmosim_core)
   add_executable(bench_active_kernel_compact_vs_full bench/bench_active_kernel_compact_vs_full.cpp)
   target_link_libraries(bench_active_kernel_compact_vs_full PRIVATE cosmosim_core)
   add_executable(bench_time_bin_scheduler bench/bench_time_bin_scheduler.cpp)

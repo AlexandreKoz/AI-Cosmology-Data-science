@@ -10,6 +10,8 @@ coordinate_frame = physical
 mode = isolated_galaxy
 ic_file = isolated_galaxy_ics.hdf5
 zoom_high_res_region = false
+hydro_boundary = open
+gravity_boundary = isolated_monopole
 
 [cosmology]
 omega_matter = 0.31

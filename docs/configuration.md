@@ -26,3 +26,19 @@ CosmoSim accepts a line-oriented `param.txt` style workflow and normalizes it in
 ## Stable names
 
 `output.output_stem` and `output.restart_stem` accept only `[a-zA-Z0-9_-]` to preserve stable naming across snapshots, restarts, tests, and benchmarks.
+
+
+## Simulation modes and boundaries
+
+`mode.mode` selects one of `cosmo_cube`, `zoom_in`, `isolated_galaxy`, or `isolated_cluster`.
+
+Boundary behavior is explicit and normalized into the frozen config:
+- `mode.hydro_boundary`: `auto`, `periodic`, `open`, or `reflective`.
+- `mode.gravity_boundary`: `auto`, `periodic`, or `isolated_monopole`.
+
+Mode-policy validation rules:
+- `cosmo_cube` and `zoom_in` require periodic hydro and periodic Poisson gravity.
+- `isolated_galaxy` and `isolated_cluster` require non-periodic gravity (`isolated_monopole`), with hydro boundary selected by policy or explicit override.
+- `zoom_in` with `mode.zoom_high_res_region=true` still requires `mode.zoom_region_file`.
+
+For isolated gravity, the current boundary treatment is a monopole/Dirichlet-style reference potential ghost fill (`isolated_monopole`) documented in the mode policy and preserved in normalized snapshots for provenance.

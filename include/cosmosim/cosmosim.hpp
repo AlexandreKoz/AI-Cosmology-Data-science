@@ -11,6 +11,7 @@
 #include "cosmosim/core/provenance.hpp"
 #include "cosmosim/core/soa_storage.hpp"
 #include "cosmosim/core/simulation_state.hpp"
+#include "cosmosim/core/simulation_mode.hpp"
 #include "cosmosim/core/time_integration.hpp"
 #include "cosmosim/core/units.hpp"
 #include "cosmosim/core/module_registry.hpp"

@@ -11,6 +11,8 @@ mode = zoom_in
 ic_file = zoom_in_ics.hdf5
 zoom_high_res_region = true
 zoom_region_file = zoom_lagrangian_region.hdf5
+hydro_boundary = periodic
+gravity_boundary = periodic
 
 [cosmology]
 omega_matter = 0.3089

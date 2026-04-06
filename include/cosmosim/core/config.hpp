@@ -71,6 +71,8 @@ struct ModeConfig {
   std::string ic_file = "ics.hdf5";
   bool zoom_high_res_region = false;
   std::string zoom_region_file;
+  std::string hydro_boundary = "auto";
+  std::string gravity_boundary = "auto";
 };
 
 struct CompatibilityConfig {

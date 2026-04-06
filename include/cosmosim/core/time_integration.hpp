@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "cosmosim/core/cosmology.hpp"
+#include "cosmosim/core/simulation_mode.hpp"
 #include "cosmosim/core/simulation_state.hpp"
 
 namespace cosmosim::core {
@@ -67,6 +68,7 @@ struct StepContext {
   ActiveSetDescriptor active_set;
   TransientStepWorkspace* workspace = nullptr;
   const LambdaCdmBackground* cosmology_background = nullptr;
+  const ModePolicy* mode_policy = nullptr;
   IntegrationStage stage = IntegrationStage::kGravityKickPre;
 };
 
@@ -102,7 +104,8 @@ class StepOrchestrator {
       IntegratorState& integrator_state,
       ActiveSetDescriptor active_set,
       const LambdaCdmBackground* cosmology_background,
-      TransientStepWorkspace* workspace = nullptr) const;
+      TransientStepWorkspace* workspace = nullptr,
+      const ModePolicy* mode_policy = nullptr) const;
 
  private:
   StageScheduler m_scheduler;
