@@ -180,6 +180,7 @@ class ModuleSidecarRegistry {
   void upsert(ModuleSidecarBlock block);
   [[nodiscard]] const ModuleSidecarBlock* find(std::string_view module_name) const;
   [[nodiscard]] std::size_t size() const noexcept;
+  [[nodiscard]] std::vector<const ModuleSidecarBlock*> blocksSortedByName() const;
 
  private:
   std::unordered_map<std::string, ModuleSidecarBlock> m_sidecars;

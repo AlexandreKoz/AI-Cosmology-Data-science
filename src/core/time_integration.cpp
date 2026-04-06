@@ -267,6 +267,51 @@ const TimeBinHotMetadata& HierarchicalTimeBinScheduler::hotMetadata() const noex
 
 const TimeBinDiagnostics& HierarchicalTimeBinScheduler::diagnostics() const noexcept { return m_diagnostics; }
 
+TimeBinPersistentState HierarchicalTimeBinScheduler::exportPersistentState() const {
+  TimeBinPersistentState persistent_state;
+  persistent_state.current_tick = m_current_tick;
+  persistent_state.max_bin = m_max_bin;
+  persistent_state.bin_index = m_hot.bin_index;
+  persistent_state.next_activation_tick = m_hot.next_activation_tick;
+  persistent_state.active_flag = m_hot.active_flag;
+  persistent_state.pending_bin_index = m_hot.pending_bin_index;
+  return persistent_state;
+}
+
+void HierarchicalTimeBinScheduler::importPersistentState(const TimeBinPersistentState& persistent_state) {
+  if (persistent_state.bin_index.size() != persistent_state.next_activation_tick.size() ||
+      persistent_state.bin_index.size() != persistent_state.active_flag.size() ||
+      persistent_state.bin_index.size() != persistent_state.pending_bin_index.size()) {
+    throw std::invalid_argument("TimeBinPersistentState arrays must have matching sizes");
+  }
+
+  m_current_tick = persistent_state.current_tick;
+  m_max_bin = persistent_state.max_bin;
+  m_hot.bin_index = persistent_state.bin_index;
+  m_hot.next_activation_tick = persistent_state.next_activation_tick;
+  m_hot.active_flag = persistent_state.active_flag;
+  m_hot.pending_bin_index = persistent_state.pending_bin_index;
+
+  m_elements_by_bin.assign(static_cast<std::size_t>(m_max_bin) + 1U, {});
+  m_position_in_bin.assign(m_hot.bin_index.size(), 0);
+
+  for (std::size_t element_index = 0; element_index < m_hot.bin_index.size(); ++element_index) {
+    const std::uint8_t bin = clampBin(m_hot.bin_index[element_index]);
+    m_hot.bin_index[element_index] = bin;
+    auto& members = m_elements_by_bin[bin];
+    m_position_in_bin[element_index] = members.size();
+    members.push_back(static_cast<std::uint32_t>(element_index));
+  }
+
+  m_active_elements.clear();
+  m_diagnostics = {};
+  m_diagnostics.occupancy_by_bin.assign(static_cast<std::size_t>(m_max_bin) + 1U, 0U);
+  m_diagnostics.active_count_by_bin.assign(static_cast<std::size_t>(m_max_bin) + 1U, 0U);
+  for (std::size_t bin = 0; bin < m_elements_by_bin.size(); ++bin) {
+    m_diagnostics.occupancy_by_bin[bin] = static_cast<std::uint32_t>(m_elements_by_bin[bin].size());
+  }
+}
+
 std::uint8_t HierarchicalTimeBinScheduler::clampBin(std::uint8_t requested) const noexcept {
   return std::min(requested, m_max_bin);
 }

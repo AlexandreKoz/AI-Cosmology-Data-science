@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iomanip>
 #include <sstream>
+#include <string_view>
 #include <stdexcept>
 #include <thread>
 
@@ -139,6 +140,46 @@ std::string serializeProvenanceRecord(const ProvenanceRecord& record) {
   return stream.str();
 }
 
+
+ProvenanceRecord deserializeProvenanceRecord(std::string_view text) {
+  ProvenanceRecord record;
+  std::istringstream input{std::string(text)};
+  std::string line;
+  while (std::getline(input, line)) {
+    if (line.empty()) {
+      continue;
+    }
+    const std::size_t pos = line.find('=');
+    if (pos == std::string::npos) {
+      continue;
+    }
+    const std::string key = trim(line.substr(0, pos));
+    const std::string value = trim(line.substr(pos + 1));
+    if (key == "schema_version") {
+      record.schema_version = value;
+    } else if (key == "git_sha") {
+      record.git_sha = value;
+    } else if (key == "compiler_id") {
+      record.compiler_id = value;
+    } else if (key == "compiler_version") {
+      record.compiler_version = value;
+    } else if (key == "build_preset") {
+      record.build_preset = value;
+    } else if (key == "enabled_features") {
+      record.enabled_features = value;
+    } else if (key == "config_hash_hex") {
+      record.config_hash_hex = value;
+    } else if (key == "timestamp_utc") {
+      record.timestamp_utc = value;
+    } else if (key == "hardware_summary") {
+      record.hardware_summary = value;
+    } else if (key == "author_rank") {
+      record.author_rank = std::stoi(value);
+    }
+  }
+  return record;
+}
+
 void writeProvenanceRecord(
     const ProvenanceRecord& record,
     const std::filesystem::path& run_directory,
@@ -165,44 +206,9 @@ ProvenanceRecord readProvenanceRecord(
     throw std::runtime_error("failed to read provenance record: " + path.string());
   }
 
-  ProvenanceRecord record;
-  std::string line;
-  while (std::getline(input, line)) {
-    if (line.empty()) {
-      continue;
-    }
-    const std::size_t pos = line.find('=');
-    if (pos == std::string::npos) {
-      continue;
-    }
-
-    const std::string key = trim(line.substr(0, pos));
-    const std::string value = trim(line.substr(pos + 1));
-
-    if (key == "schema_version") {
-      record.schema_version = value;
-    } else if (key == "git_sha") {
-      record.git_sha = value;
-    } else if (key == "compiler_id") {
-      record.compiler_id = value;
-    } else if (key == "compiler_version") {
-      record.compiler_version = value;
-    } else if (key == "build_preset") {
-      record.build_preset = value;
-    } else if (key == "enabled_features") {
-      record.enabled_features = value;
-    } else if (key == "config_hash_hex") {
-      record.config_hash_hex = value;
-    } else if (key == "timestamp_utc") {
-      record.timestamp_utc = value;
-    } else if (key == "hardware_summary") {
-      record.hardware_summary = value;
-    } else if (key == "author_rank") {
-      record.author_rank = std::stoi(value);
-    }
-  }
-
-  return record;
+  std::ostringstream stream;
+  stream << input.rdbuf();
+  return deserializeProvenanceRecord(stream.str());
 }
 
 }  // namespace cosmosim::core

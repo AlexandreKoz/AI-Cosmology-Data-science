@@ -143,6 +143,17 @@ struct TimeBinMappingResult {
   bool clipped_to_max = false;
 };
 
+
+// Persisted scheduler state required for exact restart continuation.
+struct TimeBinPersistentState {
+  std::uint64_t current_tick = 0;
+  std::uint8_t max_bin = 0;
+  std::vector<std::uint8_t> bin_index;
+  std::vector<std::uint64_t> next_activation_tick;
+  std::vector<std::uint8_t> active_flag;
+  std::vector<std::uint8_t> pending_bin_index;
+};
+
 // Typed limits that normalize physical timestep proposals into the discrete bin hierarchy.
 struct TimeStepLimits {
   double min_dt_time_code = 0.0;
@@ -209,6 +220,9 @@ class HierarchicalTimeBinScheduler {
 
   [[nodiscard]] const TimeBinHotMetadata& hotMetadata() const noexcept;
   [[nodiscard]] const TimeBinDiagnostics& diagnostics() const noexcept;
+
+  [[nodiscard]] TimeBinPersistentState exportPersistentState() const;
+  void importPersistentState(const TimeBinPersistentState& persistent_state);
 
  private:
   std::uint8_t clampBin(std::uint8_t requested) const noexcept;

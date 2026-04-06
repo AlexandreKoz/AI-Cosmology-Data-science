@@ -365,6 +365,22 @@ const ModuleSidecarBlock* ModuleSidecarRegistry::find(std::string_view module_na
 
 std::size_t ModuleSidecarRegistry::size() const noexcept { return m_sidecars.size(); }
 
+std::vector<const ModuleSidecarBlock*> ModuleSidecarRegistry::blocksSortedByName() const {
+  std::vector<const ModuleSidecarBlock*> ordered;
+  ordered.reserve(m_sidecars.size());
+  for (const auto& [name, block] : m_sidecars) {
+    (void)name;
+    ordered.push_back(&block);
+  }
+  std::sort(
+      ordered.begin(),
+      ordered.end(),
+      [](const ModuleSidecarBlock* lhs, const ModuleSidecarBlock* rhs) {
+        return lhs->module_name < rhs->module_name;
+      });
+  return ordered;
+}
+
 // Resize shared particle skeleton and metadata sidecars together.
 void SimulationState::resizeParticles(std::size_t count) {
   particles.resize(count);
