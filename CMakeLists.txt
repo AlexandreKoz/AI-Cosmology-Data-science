@@ -126,7 +126,8 @@ add_library(cosmosim_gravity STATIC
   src/gravity/gravity_module.cpp
   src/gravity/pm_solver.cpp
   src/gravity/tree_ordering.cpp
-  src/gravity/tree_gravity.cpp)
+  src/gravity/tree_gravity.cpp
+  src/gravity/tree_pm_coupling.cpp)
 add_library(cosmosim_hydro STATIC src/hydro/hydro_module.cpp)
 add_library(cosmosim_amr STATIC src/amr/amr_module.cpp)
 add_library(cosmosim_physics STATIC src/physics/physics_module.cpp)
@@ -268,6 +269,14 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_integration_pm_periodic_mode PRIVATE cosmosim_gravity)
   add_test(NAME integration_pm_periodic_mode COMMAND test_integration_pm_periodic_mode)
 
+  add_executable(test_unit_tree_pm_split_kernel tests/unit/test_tree_pm_split_kernel.cpp)
+  target_link_libraries(test_unit_tree_pm_split_kernel PRIVATE cosmosim_gravity)
+  add_test(NAME unit_tree_pm_split_kernel COMMAND test_unit_tree_pm_split_kernel)
+
+  add_executable(test_integration_tree_pm_coupling_periodic tests/integration/test_tree_pm_coupling_periodic.cpp)
+  target_link_libraries(test_integration_tree_pm_coupling_periodic PRIVATE cosmosim_gravity)
+  add_test(NAME integration_tree_pm_coupling_periodic COMMAND test_integration_tree_pm_coupling_periodic)
+
   add_executable(test_integration_tree_gravity_vs_direct tests/integration/test_tree_gravity_vs_direct.cpp)
   target_link_libraries(test_integration_tree_gravity_vs_direct PRIVATE cosmosim_gravity)
   add_test(NAME integration_tree_gravity_vs_direct COMMAND test_integration_tree_gravity_vs_direct)
@@ -322,6 +331,9 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
 
   add_executable(bench_tree_gravity bench/bench_tree_gravity.cpp)
   target_link_libraries(bench_tree_gravity PRIVATE cosmosim_gravity)
+
+  add_executable(bench_tree_pm_coupling bench/bench_tree_pm_coupling.cpp)
+  target_link_libraries(bench_tree_pm_coupling PRIVATE cosmosim_gravity)
 endif()
 
 cosmosim_generate_feature_summary(

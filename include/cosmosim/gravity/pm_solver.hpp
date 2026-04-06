@@ -31,6 +31,8 @@ struct PmSolveOptions {
   double gravitational_constant_code = 1.0;
   PmAssignmentScheme assignment_scheme = PmAssignmentScheme::kCic;
   bool enable_window_deconvolution = false;
+  // Optional TreePM long-range Gaussian split scale. <=0 disables filtering.
+  double tree_pm_split_scale_comoving = 0.0;
 };
 
 struct PmProfileEvent {
