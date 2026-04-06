@@ -4,7 +4,9 @@
 #include <cstdlib>
 #include <limits>
 #include <new>
+#include <numeric>
 #include <sstream>
+#include <tuple>
 #include <unordered_set>
 
 namespace cosmosim::core {
@@ -88,6 +90,7 @@ bool ParticleSoa::isConsistent() const noexcept {
 void ParticleSidecar::resize(std::size_t count) {
   // Sidecar arrays share the same particle index space as ParticleSoa.
   particle_id.resize(count);
+  sfc_key.resize(count);
   species_tag.resize(count);
   particle_flags.resize(count);
   owning_rank.resize(count);
@@ -99,7 +102,7 @@ std::size_t ParticleSidecar::size() const noexcept { return particle_id.size(); 
 // Validate sidecar lane consistency before ownership invariants are checked.
 bool ParticleSidecar::isConsistent() const noexcept {
   const std::size_t expected = particle_id.size();
-  return species_tag.size() == expected && particle_flags.size() == expected &&
+  return sfc_key.size() == expected && species_tag.size() == expected && particle_flags.size() == expected &&
          owning_rank.size() == expected;
 }
 
@@ -513,6 +516,35 @@ std::size_t ParticleActiveView::size() const noexcept { return particle_id.size(
 // Return compact cell active-view row count.
 std::size_t CellActiveView::size() const noexcept { return center_x_comoving.size(); }
 
+// Return gravity kernel compact view row count.
+std::size_t GravityParticleKernelView::size() const noexcept { return particle_index.size(); }
+
+// Return hydro kernel compact view row count.
+std::size_t HydroCellKernelView::size() const noexcept { return cell_index.size(); }
+
+bool ParticleReorderMap::isConsistent(std::size_t particle_count) const noexcept {
+  if (old_to_new_index.size() != particle_count || new_to_old_index.size() != particle_count) {
+    return false;
+  }
+
+  // Validate bijection: each new index is hit exactly once and inverts back.
+  std::vector<std::uint8_t> visited(particle_count, 0U);
+  for (std::size_t i = 0; i < particle_count; ++i) {
+    const auto mapped = old_to_new_index[i];
+    if (mapped >= particle_count) {
+      return false;
+    }
+    if (visited[mapped] != 0U) {
+      return false;
+    }
+    visited[mapped] = 1U;
+    if (new_to_old_index[mapped] != i) {
+      return false;
+    }
+  }
+  return true;
+}
+
 // Construct monotonic scratch allocator with optional pre-reserved capacity.
 MonotonicScratchAllocator::MonotonicScratchAllocator(std::size_t initial_capacity_bytes)
     : m_storage(initial_capacity_bytes), m_offset_bytes(0) {}
@@ -559,6 +591,15 @@ void TransientStepWorkspace::clear() {
   particle_velocity_y_peculiar.clear();
   particle_velocity_z_peculiar.clear();
   particle_mass_code.clear();
+  gravity_particle_index.clear();
+
+  hydro_cell_index.clear();
+  hydro_cell_center_x_comoving.clear();
+  hydro_cell_center_y_comoving.clear();
+  hydro_cell_center_z_comoving.clear();
+  hydro_cell_mass_code.clear();
+  hydro_cell_density_code.clear();
+  hydro_cell_pressure_code.clear();
 
   cell_center_x_comoving.clear();
   cell_center_y_comoving.clear();
@@ -660,6 +701,254 @@ CellActiveView buildCellActiveView(
       .density_code = workspace.cell_density_code,
       .pressure_code = workspace.cell_pressure_code,
   };
+}
+
+GravityParticleKernelView buildGravityParticleKernelView(
+    const SimulationState& state,
+    std::span<const std::uint32_t> active_particle_indices,
+    TransientStepWorkspace& workspace) {
+  // Keep source indices alongside compact lanes so write-back is explicit.
+  workspace.gravity_particle_index.resize(active_particle_indices.size());
+  workspace.particle_position_x_comoving.resize(active_particle_indices.size());
+  workspace.particle_position_y_comoving.resize(active_particle_indices.size());
+  workspace.particle_position_z_comoving.resize(active_particle_indices.size());
+  workspace.particle_velocity_x_peculiar.resize(active_particle_indices.size());
+  workspace.particle_velocity_y_peculiar.resize(active_particle_indices.size());
+  workspace.particle_velocity_z_peculiar.resize(active_particle_indices.size());
+  workspace.particle_mass_code.resize(active_particle_indices.size());
+
+  for (std::size_t i = 0; i < active_particle_indices.size(); ++i) {
+    const auto source = active_particle_indices[i];
+    if (source >= state.particles.size()) {
+      throw std::out_of_range("buildGravityParticleKernelView: particle index out of range");
+    }
+    workspace.gravity_particle_index[i] = source;
+  }
+
+  gatherSpan<double>(
+      state.particles.position_x_comoving,
+      active_particle_indices,
+      workspace.particle_position_x_comoving);
+  gatherSpan<double>(
+      state.particles.position_y_comoving,
+      active_particle_indices,
+      workspace.particle_position_y_comoving);
+  gatherSpan<double>(
+      state.particles.position_z_comoving,
+      active_particle_indices,
+      workspace.particle_position_z_comoving);
+  gatherSpan<double>(
+      state.particles.velocity_x_peculiar,
+      active_particle_indices,
+      workspace.particle_velocity_x_peculiar);
+  gatherSpan<double>(
+      state.particles.velocity_y_peculiar,
+      active_particle_indices,
+      workspace.particle_velocity_y_peculiar);
+  gatherSpan<double>(
+      state.particles.velocity_z_peculiar,
+      active_particle_indices,
+      workspace.particle_velocity_z_peculiar);
+  gatherSpan<double>(state.particles.mass_code, active_particle_indices, workspace.particle_mass_code);
+
+  return GravityParticleKernelView{
+      .particle_index = workspace.gravity_particle_index,
+      .position_x_comoving = workspace.particle_position_x_comoving,
+      .position_y_comoving = workspace.particle_position_y_comoving,
+      .position_z_comoving = workspace.particle_position_z_comoving,
+      .velocity_x_peculiar = workspace.particle_velocity_x_peculiar,
+      .velocity_y_peculiar = workspace.particle_velocity_y_peculiar,
+      .velocity_z_peculiar = workspace.particle_velocity_z_peculiar,
+      .mass_code = workspace.particle_mass_code,
+  };
+}
+
+void scatterGravityParticleKernelView(const GravityParticleKernelView& view, SimulationState& state) {
+  // Scatter changed compact lanes back to persistent hot arrays using stored indices.
+  for (std::size_t i = 0; i < view.size(); ++i) {
+    const auto destination = view.particle_index[i];
+    if (destination >= state.particles.size()) {
+      throw std::out_of_range("scatterGravityParticleKernelView: stale particle index");
+    }
+    state.particles.position_x_comoving[destination] = view.position_x_comoving[i];
+    state.particles.position_y_comoving[destination] = view.position_y_comoving[i];
+    state.particles.position_z_comoving[destination] = view.position_z_comoving[i];
+    state.particles.velocity_x_peculiar[destination] = view.velocity_x_peculiar[i];
+    state.particles.velocity_y_peculiar[destination] = view.velocity_y_peculiar[i];
+    state.particles.velocity_z_peculiar[destination] = view.velocity_z_peculiar[i];
+    state.particles.mass_code[destination] = view.mass_code[i];
+  }
+}
+
+HydroCellKernelView buildHydroCellKernelView(
+    const SimulationState& state,
+    std::span<const std::uint32_t> active_cell_indices,
+    TransientStepWorkspace& workspace) {
+  // Preserve source cell indices so hydro writes remain explicit and auditable.
+  workspace.hydro_cell_index.resize(active_cell_indices.size());
+  workspace.hydro_cell_center_x_comoving.resize(active_cell_indices.size());
+  workspace.hydro_cell_center_y_comoving.resize(active_cell_indices.size());
+  workspace.hydro_cell_center_z_comoving.resize(active_cell_indices.size());
+  workspace.hydro_cell_mass_code.resize(active_cell_indices.size());
+  workspace.hydro_cell_density_code.resize(active_cell_indices.size());
+  workspace.hydro_cell_pressure_code.resize(active_cell_indices.size());
+
+  for (std::size_t i = 0; i < active_cell_indices.size(); ++i) {
+    const auto source = active_cell_indices[i];
+    if (source >= state.cells.size()) {
+      throw std::out_of_range("buildHydroCellKernelView: cell index out of range");
+    }
+    workspace.hydro_cell_index[i] = source;
+  }
+
+  gatherSpan<double>(
+      state.cells.center_x_comoving,
+      active_cell_indices,
+      workspace.hydro_cell_center_x_comoving);
+  gatherSpan<double>(
+      state.cells.center_y_comoving,
+      active_cell_indices,
+      workspace.hydro_cell_center_y_comoving);
+  gatherSpan<double>(
+      state.cells.center_z_comoving,
+      active_cell_indices,
+      workspace.hydro_cell_center_z_comoving);
+  gatherSpan<double>(state.cells.mass_code, active_cell_indices, workspace.hydro_cell_mass_code);
+  gatherSpan<double>(state.gas_cells.density_code, active_cell_indices, workspace.hydro_cell_density_code);
+  gatherSpan<double>(state.gas_cells.pressure_code, active_cell_indices, workspace.hydro_cell_pressure_code);
+
+  return HydroCellKernelView{
+      .cell_index = workspace.hydro_cell_index,
+      .center_x_comoving = workspace.hydro_cell_center_x_comoving,
+      .center_y_comoving = workspace.hydro_cell_center_y_comoving,
+      .center_z_comoving = workspace.hydro_cell_center_z_comoving,
+      .mass_code = workspace.hydro_cell_mass_code,
+      .density_code = workspace.hydro_cell_density_code,
+      .pressure_code = workspace.hydro_cell_pressure_code,
+  };
+}
+
+void scatterHydroCellKernelView(const HydroCellKernelView& view, SimulationState& state) {
+  // Scatter compact hydro outputs back into persistent cell/gas storage.
+  for (std::size_t i = 0; i < view.size(); ++i) {
+    const auto destination = view.cell_index[i];
+    if (destination >= state.cells.size()) {
+      throw std::out_of_range("scatterHydroCellKernelView: stale cell index");
+    }
+    state.cells.center_x_comoving[destination] = view.center_x_comoving[i];
+    state.cells.center_y_comoving[destination] = view.center_y_comoving[i];
+    state.cells.center_z_comoving[destination] = view.center_z_comoving[i];
+    state.cells.mass_code[destination] = view.mass_code[i];
+    state.gas_cells.density_code[destination] = view.density_code[i];
+    state.gas_cells.pressure_code[destination] = view.pressure_code[i];
+  }
+}
+
+ParticleReorderMap buildParticleReorderMap(const SimulationState& state, ParticleReorderMode mode) {
+  ParticleReorderMap reorder_map;
+  reorder_map.new_to_old_index.resize(state.particles.size());
+  std::iota(reorder_map.new_to_old_index.begin(), reorder_map.new_to_old_index.end(), 0U);
+
+  // Comparator intentionally ties on old index to keep deterministic stability.
+  const auto key_comp = [&](std::uint32_t lhs, std::uint32_t rhs) {
+    if (mode == ParticleReorderMode::kByTimeBin) {
+      const auto lhs_key = state.particles.time_bin[lhs];
+      const auto rhs_key = state.particles.time_bin[rhs];
+      return std::tuple{lhs_key, lhs} < std::tuple{rhs_key, rhs};
+    }
+    if (mode == ParticleReorderMode::kBySfcKey) {
+      const auto lhs_key = state.particle_sidecar.sfc_key[lhs];
+      const auto rhs_key = state.particle_sidecar.sfc_key[rhs];
+      return std::tuple{lhs_key, lhs} < std::tuple{rhs_key, rhs};
+    }
+    const auto lhs_key = state.particle_sidecar.species_tag[lhs];
+    const auto rhs_key = state.particle_sidecar.species_tag[rhs];
+    return std::tuple{lhs_key, lhs} < std::tuple{rhs_key, rhs};
+  };
+
+  std::stable_sort(reorder_map.new_to_old_index.begin(), reorder_map.new_to_old_index.end(), key_comp);
+
+  reorder_map.old_to_new_index.resize(state.particles.size());
+  for (std::size_t new_index = 0; new_index < reorder_map.new_to_old_index.size(); ++new_index) {
+    const auto old_index = reorder_map.new_to_old_index[new_index];
+    reorder_map.old_to_new_index[old_index] = static_cast<std::uint32_t>(new_index);
+  }
+
+  return reorder_map;
+}
+
+template <typename T>
+void reorderAlignedVector(
+    AlignedVector<T>& values,
+    std::span<const std::uint32_t> new_to_old_index) {
+  // Rebuild destination vector by reading from old rows in new order.
+  AlignedVector<T> reordered(values.size());
+  for (std::size_t i = 0; i < new_to_old_index.size(); ++i) {
+    reordered[i] = values[new_to_old_index[i]];
+  }
+  values.swap(reordered);
+}
+
+void reorderParticles(
+    SimulationState& state,
+    const ParticleReorderMap& reorder_map,
+    const SidecarSyncPolicy& sync_policy) {
+  if (!reorder_map.isConsistent(state.particles.size())) {
+    throw std::invalid_argument("reorderParticles: inconsistent reorder map");
+  }
+
+  // Single permutation drives all parent-owned hot and sidecar lanes.
+  const std::span<const std::uint32_t> new_to_old_index = reorder_map.new_to_old_index;
+
+  reorderAlignedVector(state.particles.position_x_comoving, new_to_old_index);
+  reorderAlignedVector(state.particles.position_y_comoving, new_to_old_index);
+  reorderAlignedVector(state.particles.position_z_comoving, new_to_old_index);
+  reorderAlignedVector(state.particles.velocity_x_peculiar, new_to_old_index);
+  reorderAlignedVector(state.particles.velocity_y_peculiar, new_to_old_index);
+  reorderAlignedVector(state.particles.velocity_z_peculiar, new_to_old_index);
+  reorderAlignedVector(state.particles.mass_code, new_to_old_index);
+  reorderAlignedVector(state.particles.time_bin, new_to_old_index);
+
+  reorderAlignedVector(state.particle_sidecar.particle_id, new_to_old_index);
+  reorderAlignedVector(state.particle_sidecar.sfc_key, new_to_old_index);
+  reorderAlignedVector(state.particle_sidecar.species_tag, new_to_old_index);
+  reorderAlignedVector(state.particle_sidecar.particle_flags, new_to_old_index);
+  reorderAlignedVector(state.particle_sidecar.owning_rank, new_to_old_index);
+
+  // Per-sidecar policy: either move rows with parents or keep rows and remap references.
+  auto remap_sidecar_index = [&](AlignedVector<std::uint32_t>& particle_index, SidecarSyncMode mode) {
+    if (mode == SidecarSyncMode::kMoveWithParent) {
+      reorderAlignedVector(particle_index, new_to_old_index);
+      return;
+    }
+    for (auto& index : particle_index) {
+      if (index >= reorder_map.old_to_new_index.size()) {
+        throw std::out_of_range("reorderParticles: sidecar particle index out of range");
+      }
+      index = reorder_map.old_to_new_index[index];
+    }
+  };
+
+  remap_sidecar_index(state.star_particles.particle_index, sync_policy.star_particles);
+  remap_sidecar_index(state.black_holes.particle_index, sync_policy.black_holes);
+  remap_sidecar_index(state.tracers.particle_index, sync_policy.tracers);
+
+  state.rebuildSpeciesIndex();
+}
+
+void debugAssertNoStaleParticleIndices(const SimulationState& state) {
+  // Human-readable source labels keep invariant failures easy to triage in tests/CI.
+  auto check_indices = [&](std::span<const std::uint32_t> indices, const char* name) {
+    for (const auto index : indices) {
+      if (index >= state.particles.size()) {
+        throw std::runtime_error(std::string("debugAssertNoStaleParticleIndices: stale index in ") + name);
+      }
+    }
+  };
+
+  check_indices(state.star_particles.particle_index, "star_particles");
+  check_indices(state.black_holes.particle_index, "black_holes");
+  check_indices(state.tracers.particle_index, "tracers");
 }
 
 }  // namespace cosmosim::core

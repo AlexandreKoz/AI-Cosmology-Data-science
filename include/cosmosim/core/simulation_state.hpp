@@ -44,6 +44,8 @@ struct ParticleSoa {
 struct ParticleSidecar {
   // Shared metadata sidecar: IDs, species ownership, and rank ownership.
   AlignedVector<std::uint64_t> particle_id;
+  // Space-filling-curve key used for locality-preserving reorder/grouping.
+  AlignedVector<std::uint64_t> sfc_key;
   AlignedVector<std::uint32_t> species_tag;
   AlignedVector<std::uint32_t> particle_flags;
   AlignedVector<std::uint32_t> owning_rank;
@@ -261,6 +263,64 @@ struct CellActiveView {
   [[nodiscard]] std::size_t size() const noexcept;
 };
 
+struct GravityParticleKernelView {
+  // Compact read/write particle hot view for gravity kernels.
+  std::span<std::uint32_t> particle_index;
+  std::span<double> position_x_comoving;
+  std::span<double> position_y_comoving;
+  std::span<double> position_z_comoving;
+  std::span<double> velocity_x_peculiar;
+  std::span<double> velocity_y_peculiar;
+  std::span<double> velocity_z_peculiar;
+  std::span<double> mass_code;
+
+  [[nodiscard]] std::size_t size() const noexcept;
+};
+
+struct HydroCellKernelView {
+  // Compact read/write cell hydro view for active hydrodynamics kernels.
+  std::span<std::uint32_t> cell_index;
+  std::span<double> center_x_comoving;
+  std::span<double> center_y_comoving;
+  std::span<double> center_z_comoving;
+  std::span<double> mass_code;
+  std::span<double> density_code;
+  std::span<double> pressure_code;
+
+  [[nodiscard]] std::size_t size() const noexcept;
+};
+
+enum class ParticleReorderMode : std::uint8_t {
+  // Stable grouping by scheduler rung / hierarchical time step bin.
+  kByTimeBin = 0,
+  // Stable grouping by SFC key for locality-friendly traversals.
+  kBySfcKey = 1,
+  // Stable grouping by species for species-specialized loops/packing.
+  kBySpecies = 2,
+};
+
+enum class SidecarSyncMode : std::uint8_t {
+  // Sidecar rows are physically permuted with parent particle rows.
+  kMoveWithParent = 0,
+  // Sidecar rows stay in-place and particle_index is remapped through old->new.
+  kUseParentIndirection = 1,
+};
+
+struct SidecarSyncPolicy {
+  // Species sidecars are index-based by default and remap through old->new.
+  SidecarSyncMode star_particles = SidecarSyncMode::kUseParentIndirection;
+  SidecarSyncMode black_holes = SidecarSyncMode::kUseParentIndirection;
+  SidecarSyncMode tracers = SidecarSyncMode::kUseParentIndirection;
+};
+
+struct ParticleReorderMap {
+  // Explicit old/new particle index mapping used for auditable sidecar sync.
+  std::vector<std::uint32_t> old_to_new_index;
+  std::vector<std::uint32_t> new_to_old_index;
+
+  [[nodiscard]] bool isConsistent(std::size_t particle_count) const noexcept;
+};
+
 class ScratchAllocator {
  public:
   virtual ~ScratchAllocator() = default;
@@ -300,6 +360,16 @@ struct TransientStepWorkspace {
   AlignedVector<double> particle_velocity_y_peculiar;
   AlignedVector<double> particle_velocity_z_peculiar;
   AlignedVector<double> particle_mass_code;
+  AlignedVector<std::uint32_t> gravity_particle_index;
+
+  // Compact read/write hydro kernel buffers.
+  AlignedVector<std::uint32_t> hydro_cell_index;
+  AlignedVector<double> hydro_cell_center_x_comoving;
+  AlignedVector<double> hydro_cell_center_y_comoving;
+  AlignedVector<double> hydro_cell_center_z_comoving;
+  AlignedVector<double> hydro_cell_mass_code;
+  AlignedVector<double> hydro_cell_density_code;
+  AlignedVector<double> hydro_cell_pressure_code;
 
   // Compact cell active-set buffers.
   AlignedVector<double> cell_center_x_comoving;
@@ -325,5 +395,37 @@ struct TransientStepWorkspace {
     const SimulationState& state,
     std::span<const std::uint32_t> active_cell_indices,
     TransientStepWorkspace& workspace);
+
+[[nodiscard]] GravityParticleKernelView buildGravityParticleKernelView(
+    const SimulationState& state,
+    std::span<const std::uint32_t> active_particle_indices,
+    TransientStepWorkspace& workspace);
+
+void scatterGravityParticleKernelView(
+    const GravityParticleKernelView& view,
+    SimulationState& state);
+
+[[nodiscard]] HydroCellKernelView buildHydroCellKernelView(
+    const SimulationState& state,
+    std::span<const std::uint32_t> active_cell_indices,
+    TransientStepWorkspace& workspace);
+
+void scatterHydroCellKernelView(
+    const HydroCellKernelView& view,
+    SimulationState& state);
+
+// Build stable old/new index maps from the selected particle ordering key.
+[[nodiscard]] ParticleReorderMap buildParticleReorderMap(
+    const SimulationState& state,
+    ParticleReorderMode mode);
+
+// Apply one auditable particle permutation and synchronize all sidecars.
+void reorderParticles(
+    SimulationState& state,
+    const ParticleReorderMap& reorder_map,
+    const SidecarSyncPolicy& sync_policy = {});
+
+// Debug guard: throw on any species sidecar index no longer owned by particles.
+void debugAssertNoStaleParticleIndices(const SimulationState& state);
 
 }  // namespace cosmosim::core
