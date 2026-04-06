@@ -97,8 +97,11 @@ add_library(cosmosim_core STATIC
   src/core/module_registry.cpp
   src/core/config.cpp
   src/core/provenance.cpp
+  src/core/cosmology.cpp
+  src/core/units.cpp
   src/core/simulation_state.cpp
-  src/core/soa_storage.cpp)
+  src/core/soa_storage.cpp
+  src/core/time_integration.cpp)
 
 target_include_directories(cosmosim_core
   PUBLIC
@@ -206,6 +209,10 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_unit_soa_storage PRIVATE cosmosim_core)
   add_test(NAME unit_soa_storage COMMAND test_unit_soa_storage)
 
+
+  add_executable(test_unit_time_integration tests/unit/test_time_integration.cpp)
+  target_link_libraries(test_unit_time_integration PRIVATE cosmosim_core)
+  add_test(NAME unit_time_integration COMMAND test_unit_time_integration)
   add_executable(test_unit_species_state_organization tests/unit/test_species_state_organization.cpp)
   target_link_libraries(test_unit_species_state_organization PRIVATE cosmosim_core)
   add_test(NAME unit_species_state_organization COMMAND test_unit_species_state_organization)
@@ -230,6 +237,11 @@ if(COSMOSIM_ENABLE_TESTS)
   add_executable(test_integration_reorder_compaction_sidecars tests/integration/test_reorder_compaction_sidecars.cpp)
   target_link_libraries(test_integration_reorder_compaction_sidecars PRIVATE cosmosim_core)
   add_test(NAME integration_reorder_compaction_sidecars COMMAND test_integration_reorder_compaction_sidecars)
+
+
+  add_executable(test_integration_time_integration_loop tests/integration/test_time_integration_loop.cpp)
+  target_link_libraries(test_integration_time_integration_loop PRIVATE cosmosim_all)
+  add_test(NAME integration_time_integration_loop COMMAND test_integration_time_integration_loop)
 
   add_executable(test_integration_config_examples tests/integration/test_config_examples.cpp)
   target_link_libraries(test_integration_config_examples PRIVATE cosmosim_all)
@@ -269,6 +281,9 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
   add_executable(bench_species_hot_cold_access bench/bench_species_hot_cold_access.cpp)
   target_link_libraries(bench_species_hot_cold_access PRIVATE cosmosim_core)
 
+
+  add_executable(bench_scheduler_overhead bench/bench_scheduler_overhead.cpp)
+  target_link_libraries(bench_scheduler_overhead PRIVATE cosmosim_core)
   add_executable(bench_active_kernel_compact_vs_full bench/bench_active_kernel_compact_vs_full.cpp)
   target_link_libraries(bench_active_kernel_compact_vs_full PRIVATE cosmosim_core)
 endif()
