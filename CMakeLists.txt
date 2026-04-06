@@ -206,6 +206,10 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_unit_soa_storage PRIVATE cosmosim_core)
   add_test(NAME unit_soa_storage COMMAND test_unit_soa_storage)
 
+  add_executable(test_unit_species_state_organization tests/unit/test_species_state_organization.cpp)
+  target_link_libraries(test_unit_species_state_organization PRIVATE cosmosim_core)
+  add_test(NAME unit_species_state_organization COMMAND test_unit_species_state_organization)
+
   add_executable(test_integration_simulation_state_pipeline tests/integration/test_simulation_state_pipeline.cpp)
   target_link_libraries(test_integration_simulation_state_pipeline PRIVATE cosmosim_all)
   add_test(NAME integration_simulation_state_pipeline COMMAND test_integration_simulation_state_pipeline)
@@ -214,6 +218,10 @@ if(COSMOSIM_ENABLE_TESTS)
   add_executable(test_integration_soa_species_pipeline tests/integration/test_soa_species_pipeline.cpp)
   target_link_libraries(test_integration_soa_species_pipeline PRIVATE cosmosim_core)
   add_test(NAME integration_soa_species_pipeline COMMAND test_integration_soa_species_pipeline)
+
+  add_executable(test_integration_species_mixed_state tests/integration/test_species_mixed_state.cpp)
+  target_link_libraries(test_integration_species_mixed_state PRIVATE cosmosim_core)
+  add_test(NAME integration_species_mixed_state COMMAND test_integration_species_mixed_state)
 
   add_executable(test_integration_config_examples tests/integration/test_config_examples.cpp)
   target_link_libraries(test_integration_config_examples PRIVATE cosmosim_all)
@@ -249,6 +257,9 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
 
   add_executable(bench_soa_storage bench/bench_soa_storage.cpp)
   target_link_libraries(bench_soa_storage PRIVATE cosmosim_core)
+
+  add_executable(bench_species_hot_cold_access bench/bench_species_hot_cold_access.cpp)
+  target_link_libraries(bench_species_hot_cold_access PRIVATE cosmosim_core)
 endif()
 
 cosmosim_generate_feature_summary(
