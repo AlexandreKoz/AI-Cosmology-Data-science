@@ -95,7 +95,9 @@ configure_file(
 add_library(cosmosim_core STATIC
   src/core/version.cpp
   src/core/module_registry.cpp
-  src/core/config.cpp)
+  src/core/config.cpp
+  src/core/provenance.cpp
+  src/core/simulation_state.cpp)
 
 target_include_directories(cosmosim_core
   PUBLIC
@@ -191,9 +193,17 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_integration_harness PRIVATE cosmosim_all)
   add_test(NAME integration_harness COMMAND test_integration_harness)
 
+  add_executable(test_unit_simulation_state tests/unit/test_simulation_state.cpp)
+  target_link_libraries(test_unit_simulation_state PRIVATE cosmosim_all)
+  add_test(NAME unit_simulation_state COMMAND test_unit_simulation_state)
+
   add_executable(test_unit_config_parser tests/unit/test_config_parser.cpp)
   target_link_libraries(test_unit_config_parser PRIVATE cosmosim_all)
   add_test(NAME unit_config_parser COMMAND test_unit_config_parser)
+
+  add_executable(test_integration_simulation_state_pipeline tests/integration/test_simulation_state_pipeline.cpp)
+  target_link_libraries(test_integration_simulation_state_pipeline PRIVATE cosmosim_all)
+  add_test(NAME integration_simulation_state_pipeline COMMAND test_integration_simulation_state_pipeline)
 
   add_executable(test_integration_config_examples tests/integration/test_config_examples.cpp)
   target_link_libraries(test_integration_config_examples PRIVATE cosmosim_all)
@@ -223,6 +233,9 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
 
   add_executable(bench_config_parser bench/bench_config_parser.cpp)
   target_link_libraries(bench_config_parser PRIVATE cosmosim_core)
+
+  add_executable(bench_simulation_state_resize bench/bench_simulation_state_resize.cpp)
+  target_link_libraries(bench_simulation_state_resize PRIVATE cosmosim_core)
 endif()
 
 cosmosim_generate_feature_summary(

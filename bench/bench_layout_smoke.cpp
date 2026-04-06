@@ -1,16 +1,17 @@
 #include <chrono>
 #include <cstddef>
 #include <iostream>
-#include <vector>
 
-#include "core/internal/state_layout.hpp"
+#include "cosmosim/core/simulation_state.hpp"
 
 int main() {
   constexpr std::size_t particle_count = 200000;
-  cosmosim::core::internal::ParticleHotSoa hot;
-  hot.position_x_comoving.resize(particle_count, 1.0);
-  hot.position_y_comoving.resize(particle_count, 2.0);
-  hot.position_z_comoving.resize(particle_count, 3.0);
+  cosmosim::core::ParticleSoa hot;
+  hot.resize(particle_count);
+
+  hot.position_x_comoving.assign(particle_count, 1.0);
+  hot.position_y_comoving.assign(particle_count, 2.0);
+  hot.position_z_comoving.assign(particle_count, 3.0);
 
   const auto start = std::chrono::steady_clock::now();
   double checksum = 0.0;
