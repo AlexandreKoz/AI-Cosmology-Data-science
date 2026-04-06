@@ -16,6 +16,8 @@
 #include "cosmosim/core/module_registry.hpp"
 #include "cosmosim/core/version.hpp"
 #include "cosmosim/gravity/gravity_module.hpp"
+#include "cosmosim/gravity/pm_solver.hpp"
+#include "cosmosim/gravity/tree_gravity.hpp"
 #include "cosmosim/hydro/hydro_module.hpp"
 #include "cosmosim/io/io_module.hpp"
 #include "cosmosim/parallel/parallel_module.hpp"
