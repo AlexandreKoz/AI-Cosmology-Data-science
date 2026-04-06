@@ -122,7 +122,9 @@ if(COSMOSIM_ENABLE_LTO)
   set_property(TARGET cosmosim_core PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
 
-add_library(cosmosim_gravity STATIC src/gravity/gravity_module.cpp)
+add_library(cosmosim_gravity STATIC
+  src/gravity/gravity_module.cpp
+  src/gravity/pm_solver.cpp)
 add_library(cosmosim_hydro STATIC src/hydro/hydro_module.cpp)
 add_library(cosmosim_amr STATIC src/amr/amr_module.cpp)
 add_library(cosmosim_physics STATIC src/physics/physics_module.cpp)
@@ -251,6 +253,14 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_integration_hierarchical_timestep_regression PRIVATE cosmosim_core)
   add_test(NAME integration_hierarchical_timestep_regression COMMAND test_integration_hierarchical_timestep_regression)
 
+
+  add_executable(test_unit_pm_solver tests/unit/test_pm_solver.cpp)
+  target_link_libraries(test_unit_pm_solver PRIVATE cosmosim_gravity)
+  add_test(NAME unit_pm_solver COMMAND test_unit_pm_solver)
+
+  add_executable(test_integration_pm_periodic_mode tests/integration/test_pm_periodic_mode.cpp)
+  target_link_libraries(test_integration_pm_periodic_mode PRIVATE cosmosim_gravity)
+  add_test(NAME integration_pm_periodic_mode COMMAND test_integration_pm_periodic_mode)
   add_executable(test_integration_config_examples tests/integration/test_config_examples.cpp)
   target_link_libraries(test_integration_config_examples PRIVATE cosmosim_all)
   target_compile_definitions(test_integration_config_examples PRIVATE COSMOSIM_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
@@ -296,6 +306,9 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
   target_link_libraries(bench_active_kernel_compact_vs_full PRIVATE cosmosim_core)
   add_executable(bench_time_bin_scheduler bench/bench_time_bin_scheduler.cpp)
   target_link_libraries(bench_time_bin_scheduler PRIVATE cosmosim_core)
+
+  add_executable(bench_pm_solver bench/bench_pm_solver.cpp)
+  target_link_libraries(bench_pm_solver PRIVATE cosmosim_gravity)
 endif()
 
 cosmosim_generate_feature_summary(
