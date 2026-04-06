@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 #include "cosmosim/core/time_integration.hpp"
@@ -13,9 +14,7 @@ class StageRecorder final : public cosmosim::core::IntegrationCallback {
  public:
   std::string_view callbackName() const override { return "stage_recorder"; }
 
-  void onStage(cosmosim::core::StepContext& context) override {
-    observed_stages.push_back(context.stage);
-  }
+  void onStage(cosmosim::core::StepContext& context) override { observed_stages.push_back(context.stage); }
 
   std::vector<cosmosim::core::IntegrationStage> observed_stages;
 };
@@ -84,11 +83,98 @@ void testActiveSubsetDetection() {
   assert(!active_set.hasCellSubset(2));
 }
 
+void testTimeBinMappingAndCriteria() {
+  const cosmosim::core::TimeStepLimits limits{
+      .min_dt_time_code = 0.125,
+      .max_dt_time_code = 1.0,
+      .max_bin = 3,
+  };
+
+  const auto mapped = cosmosim::core::mapDtToTimeBin(0.5, limits);
+  assert(mapped.bin_index == 2);
+  assert(!mapped.clipped_to_min);
+  assert(!mapped.clipped_to_max);
+
+  const auto clipped_min = cosmosim::core::mapDtToTimeBin(0.001, limits);
+  assert(clipped_min.bin_index == 0);
+  assert(clipped_min.clipped_to_min);
+
+  const auto clipped_max = cosmosim::core::mapDtToTimeBin(8.0, limits);
+  assert(clipped_max.bin_index == 3);
+  assert(clipped_max.clipped_to_max);
+
+  const cosmosim::core::CflTimeStepInput cfl_input{
+      .cell_width_code = 0.25,
+      .flow_speed_code = 1.0,
+      .sound_speed_code = 0.5,
+  };
+  const double dt_cfl = cosmosim::core::computeCflTimeStep(cfl_input, 0.8);
+  assert(std::abs(dt_cfl - (0.8 * 0.25 / 1.5)) < k_tolerance);
+
+  const cosmosim::core::GravityTimeStepInput grav_input{
+      .softening_length_code = 0.01,
+      .acceleration_magnitude_code = 4.0,
+  };
+  const double dt_grav = cosmosim::core::computeGravityTimeStep(grav_input, 0.4);
+  assert(std::abs(dt_grav - 0.4 * std::sqrt(0.01 / 4.0)) < k_tolerance);
+
+  cosmosim::core::TimeStepCriteriaRegistry registry;
+  registry.registerCflHook([](std::uint32_t index) { return index == 0 ? 0.2 : 0.4; });
+  registry.registerGravityHook([](std::uint32_t index) { return index == 0 ? 0.3 : 0.1; });
+  registry.registerSourceHook([](std::uint32_t) { return std::numeric_limits<double>::infinity(); });
+  registry.registerUserClampHook([](std::uint32_t) { return 0.15; });
+
+  const double dt0 = cosmosim::core::combineTimeStepCriteria(0, registry.hooks(), 0.5);
+  const double dt1 = cosmosim::core::combineTimeStepCriteria(1, registry.hooks(), 0.5);
+  assert(std::abs(dt0 - 0.15) < k_tolerance);
+  assert(std::abs(dt1 - 0.1) < k_tolerance);
+}
+
+void testHierarchicalSchedulerTransitions() {
+  cosmosim::core::HierarchicalTimeBinScheduler scheduler(3);
+  scheduler.reset(4, 2, 0);
+
+  auto active = scheduler.beginSubstep();
+  assert(active.size() == 4);
+
+  scheduler.requestBinTransition(0, 0);
+  scheduler.requestBinTransition(1, 3);
+  scheduler.endSubstep();
+
+  const auto& hot = scheduler.hotMetadata();
+  assert(hot.bin_index[0] == 0);
+  assert(hot.bin_index[1] == 3);
+
+  active = scheduler.beginSubstep();
+  assert(active.size() == 1);
+  assert(active[0] == 0);
+
+  scheduler.requestBinTransition(0, 3);
+  scheduler.endSubstep();
+  const auto illegal_before = scheduler.diagnostics().illegal_transition_attempts;
+  assert(illegal_before >= 1);
+
+  while (scheduler.currentTick() < 8) {
+    scheduler.beginSubstep();
+    scheduler.endSubstep();
+  }
+
+  active = scheduler.beginSubstep();
+  assert(!active.empty() && active[0] == 0);
+  scheduler.requestBinTransition(0, 3);
+  scheduler.endSubstep();
+
+  assert(scheduler.hotMetadata().bin_index[0] == 3);
+  assert(scheduler.diagnostics().demoted_elements >= 2);
+}
+
 }  // namespace
 
 int main() {
   testKickDriftKickOrdering();
   testCosmologyHelpers();
   testActiveSubsetDetection();
+  testTimeBinMappingAndCriteria();
+  testHierarchicalSchedulerTransitions();
   return 0;
 }

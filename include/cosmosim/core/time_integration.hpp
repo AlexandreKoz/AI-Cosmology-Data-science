@@ -1,7 +1,10 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <optional>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -105,6 +108,131 @@ class StepOrchestrator {
   StageScheduler m_scheduler;
   std::vector<IntegrationCallback*> m_callbacks;
 };
+
+// Hot metadata sidecar for element-local time-bin ownership and scheduling state.
+struct TimeBinHotMetadata {
+  std::vector<std::uint8_t> bin_index;
+  std::vector<std::uint64_t> next_activation_tick;
+  std::vector<std::uint8_t> active_flag;
+  std::vector<std::uint8_t> pending_bin_index;
+
+  [[nodiscard]] std::size_t size() const noexcept { return bin_index.size(); }
+};
+
+// Diagnostics emitted by hierarchical scheduler for auditing and pathological collapse detection.
+struct TimeBinDiagnostics {
+  std::vector<std::uint32_t> occupancy_by_bin;
+  std::vector<std::uint32_t> active_count_by_bin;
+  std::uint32_t active_elements = 0;
+  std::uint32_t promoted_elements = 0;
+  std::uint32_t demoted_elements = 0;
+  std::uint32_t clipped_to_min_dt = 0;
+  std::uint32_t clipped_to_max_dt = 0;
+  std::uint32_t illegal_transition_attempts = 0;
+  std::uint32_t collapse_candidates = 0;
+  double active_fraction = 0.0;
+  std::uint8_t most_active_bin = 0;
+};
+
+struct TimeBinMappingResult {
+  std::uint8_t bin_index = 0;
+  bool clipped_to_min = false;
+  bool clipped_to_max = false;
+};
+
+// Typed limits that normalize physical timestep proposals into the discrete bin hierarchy.
+struct TimeStepLimits {
+  double min_dt_time_code = 0.0;
+  double max_dt_time_code = 0.0;
+  std::uint8_t max_bin = 0;
+};
+
+// Compact inputs for conservative CFL and gravity criteria hooks.
+struct CflTimeStepInput {
+  double cell_width_code = 0.0;
+  double flow_speed_code = 0.0;
+  double sound_speed_code = 0.0;
+};
+
+struct GravityTimeStepInput {
+  double softening_length_code = 0.0;
+  double acceleration_magnitude_code = 0.0;
+};
+
+using CriteriaHook = std::function<double(std::uint32_t)>;
+
+struct TimeStepCriteriaHooks {
+  CriteriaHook cfl_hook;
+  CriteriaHook gravity_hook;
+  CriteriaHook source_hook;
+  CriteriaHook user_clamp_hook;
+};
+
+class TimeStepCriteriaRegistry {
+ public:
+  void registerCflHook(CriteriaHook hook);
+  void registerGravityHook(CriteriaHook hook);
+  void registerSourceHook(CriteriaHook hook);
+  void registerUserClampHook(CriteriaHook hook);
+
+  [[nodiscard]] const TimeStepCriteriaHooks& hooks() const noexcept;
+
+ private:
+  TimeStepCriteriaHooks m_hooks;
+};
+
+// Integer timeline scheduler with power-of-two bins and compact active set extraction.
+class HierarchicalTimeBinScheduler {
+ public:
+  static constexpr std::uint8_t k_unset_pending_bin = 0xFF;
+
+  explicit HierarchicalTimeBinScheduler(std::uint8_t max_bin = 0);
+
+  void reset(std::uint32_t element_count, std::uint8_t initial_bin, std::uint64_t start_tick = 0);
+  void setElementBin(std::uint32_t element_index, std::uint8_t bin_index, std::uint64_t current_tick);
+  void requestBinTransition(std::uint32_t element_index, std::uint8_t target_bin);
+
+  [[nodiscard]] std::span<const std::uint32_t> activeElements() const noexcept;
+
+  [[nodiscard]] std::uint64_t currentTick() const noexcept;
+  [[nodiscard]] std::uint8_t maxBin() const noexcept;
+  [[nodiscard]] std::uint32_t elementCount() const noexcept;
+
+  [[nodiscard]] bool isBinActiveAtTick(std::uint8_t bin_index, std::uint64_t tick) const;
+  [[nodiscard]] std::uint64_t binPeriodTicks(std::uint8_t bin_index) const;
+
+  std::span<const std::uint32_t> beginSubstep();
+  void endSubstep();
+
+  [[nodiscard]] const TimeBinHotMetadata& hotMetadata() const noexcept;
+  [[nodiscard]] const TimeBinDiagnostics& diagnostics() const noexcept;
+
+ private:
+  std::uint8_t clampBin(std::uint8_t requested) const noexcept;
+  void eraseFromBin(std::uint32_t element_index, std::uint8_t bin_index);
+  void insertIntoBin(std::uint32_t element_index, std::uint8_t bin_index);
+  void rebuildActiveSet();
+  void applyPendingTransitions();
+
+  std::uint64_t m_current_tick = 0;
+  std::uint8_t m_max_bin = 0;
+  TimeBinHotMetadata m_hot;
+  std::vector<std::vector<std::uint32_t>> m_elements_by_bin;
+  std::vector<std::size_t> m_position_in_bin;
+  std::vector<std::uint32_t> m_active_elements;
+  TimeBinDiagnostics m_diagnostics;
+};
+
+[[nodiscard]] TimeBinMappingResult mapDtToTimeBin(double dt_time_code, const TimeStepLimits& limits);
+[[nodiscard]] double binIndexToDt(std::uint8_t bin_index, const TimeStepLimits& limits);
+
+[[nodiscard]] double computeCflTimeStep(const CflTimeStepInput& input, double c_cfl);
+[[nodiscard]] double computeGravityTimeStep(const GravityTimeStepInput& input, double eta);
+
+[[nodiscard]] double combineTimeStepCriteria(
+    std::uint32_t element_index,
+    const TimeStepCriteriaHooks& hooks,
+    double fallback_dt_time_code);
 
 // da/dt = a H(a) for standard FLRW backgrounds.
 [[nodiscard]] double computeScaleFactorRate(const LambdaCdmBackground& background, double scale_factor);

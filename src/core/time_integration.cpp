@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 #include <utility>
 
@@ -43,6 +44,20 @@ constexpr std::array<IntegrationStage, 7> k_kick_drift_kick_order = {
     accum += 1.0 / (a_mid * a_mid * background.hubbleSi(a_mid));
   }
   return accum * delta_a;
+}
+
+[[nodiscard]] std::uint64_t powerOfTwo(std::uint8_t exponent) {
+  if (exponent >= 63) {
+    throw std::invalid_argument("bin exponent too large for 64-bit tick period");
+  }
+  return 1ULL << exponent;
+}
+
+[[nodiscard]] double finitePositiveOrInf(double value) {
+  if (!std::isfinite(value) || value <= 0.0) {
+    return std::numeric_limits<double>::infinity();
+  }
+  return value;
 }
 
 }  // namespace
@@ -128,6 +143,328 @@ void StepOrchestrator::executeSingleStep(
         integrator_state.dt_time_code);
   }
   ++integrator_state.step_index;
+}
+
+void TimeStepCriteriaRegistry::registerCflHook(CriteriaHook hook) { m_hooks.cfl_hook = std::move(hook); }
+
+void TimeStepCriteriaRegistry::registerGravityHook(CriteriaHook hook) { m_hooks.gravity_hook = std::move(hook); }
+
+void TimeStepCriteriaRegistry::registerSourceHook(CriteriaHook hook) { m_hooks.source_hook = std::move(hook); }
+
+void TimeStepCriteriaRegistry::registerUserClampHook(CriteriaHook hook) {
+  m_hooks.user_clamp_hook = std::move(hook);
+}
+
+const TimeStepCriteriaHooks& TimeStepCriteriaRegistry::hooks() const noexcept { return m_hooks; }
+
+HierarchicalTimeBinScheduler::HierarchicalTimeBinScheduler(std::uint8_t max_bin) : m_max_bin(max_bin) {}
+
+void HierarchicalTimeBinScheduler::reset(
+    std::uint32_t element_count,
+    std::uint8_t initial_bin,
+    std::uint64_t start_tick) {
+  m_current_tick = start_tick;
+
+  const std::uint8_t clamped_bin = clampBin(initial_bin);
+  m_hot.bin_index.assign(element_count, clamped_bin);
+  m_hot.next_activation_tick.assign(element_count, m_current_tick);
+  m_hot.active_flag.assign(element_count, 0);
+  m_hot.pending_bin_index.assign(element_count, k_unset_pending_bin);
+
+  m_position_in_bin.resize(element_count, 0);
+  m_elements_by_bin.assign(static_cast<std::size_t>(m_max_bin) + 1U, {});
+  for (auto& bin_members : m_elements_by_bin) {
+    bin_members.reserve(element_count / (m_max_bin + 1U) + 1U);
+  }
+
+  for (std::uint32_t element = 0; element < element_count; ++element) {
+    m_position_in_bin[element] = m_elements_by_bin[clamped_bin].size();
+    m_elements_by_bin[clamped_bin].push_back(element);
+  }
+
+  m_active_elements.clear();
+  m_diagnostics = {};
+  m_diagnostics.occupancy_by_bin.assign(static_cast<std::size_t>(m_max_bin) + 1U, 0U);
+  m_diagnostics.active_count_by_bin.assign(static_cast<std::size_t>(m_max_bin) + 1U, 0U);
+  m_diagnostics.occupancy_by_bin[clamped_bin] = element_count;
+}
+
+void HierarchicalTimeBinScheduler::setElementBin(
+    std::uint32_t element_index,
+    std::uint8_t bin_index,
+    std::uint64_t current_tick) {
+  if (element_index >= m_hot.size()) {
+    throw std::out_of_range("element_index out of range");
+  }
+
+  const std::uint8_t clamped_bin = clampBin(bin_index);
+  const std::uint8_t old_bin = m_hot.bin_index[element_index];
+  if (old_bin == clamped_bin) {
+    const std::uint64_t period_ticks = binPeriodTicks(clamped_bin);
+    m_hot.next_activation_tick[element_index] =
+        (current_tick % period_ticks == 0) ? current_tick : ((current_tick / period_ticks) * period_ticks + period_ticks);
+    return;
+  }
+
+  eraseFromBin(element_index, old_bin);
+  insertIntoBin(element_index, clamped_bin);
+
+  m_hot.bin_index[element_index] = clamped_bin;
+  const std::uint64_t period_ticks = binPeriodTicks(clamped_bin);
+  m_hot.next_activation_tick[element_index] =
+      (current_tick % period_ticks == 0) ? current_tick : ((current_tick / period_ticks) * period_ticks + period_ticks);
+}
+
+void HierarchicalTimeBinScheduler::requestBinTransition(
+    std::uint32_t element_index,
+    std::uint8_t target_bin) {
+  if (element_index >= m_hot.size()) {
+    throw std::out_of_range("element_index out of range");
+  }
+  m_hot.pending_bin_index[element_index] = clampBin(target_bin);
+}
+
+std::span<const std::uint32_t> HierarchicalTimeBinScheduler::activeElements() const noexcept {
+  return m_active_elements;
+}
+
+std::uint64_t HierarchicalTimeBinScheduler::currentTick() const noexcept { return m_current_tick; }
+
+std::uint8_t HierarchicalTimeBinScheduler::maxBin() const noexcept { return m_max_bin; }
+
+std::uint32_t HierarchicalTimeBinScheduler::elementCount() const noexcept {
+  return static_cast<std::uint32_t>(m_hot.size());
+}
+
+bool HierarchicalTimeBinScheduler::isBinActiveAtTick(std::uint8_t bin_index, std::uint64_t tick) const {
+  const std::uint8_t clamped_bin = clampBin(bin_index);
+  return tick % binPeriodTicks(clamped_bin) == 0;
+}
+
+std::uint64_t HierarchicalTimeBinScheduler::binPeriodTicks(std::uint8_t bin_index) const {
+  return powerOfTwo(clampBin(bin_index));
+}
+
+std::span<const std::uint32_t> HierarchicalTimeBinScheduler::beginSubstep() {
+  rebuildActiveSet();
+  return m_active_elements;
+}
+
+void HierarchicalTimeBinScheduler::endSubstep() {
+  applyPendingTransitions();
+  for (const std::uint32_t element : m_active_elements) {
+    const std::uint8_t bin = m_hot.bin_index[element];
+    const std::uint64_t period_ticks = binPeriodTicks(bin);
+    m_hot.next_activation_tick[element] = m_current_tick + period_ticks;
+    m_hot.active_flag[element] = 0;
+  }
+  ++m_current_tick;
+}
+
+const TimeBinHotMetadata& HierarchicalTimeBinScheduler::hotMetadata() const noexcept { return m_hot; }
+
+const TimeBinDiagnostics& HierarchicalTimeBinScheduler::diagnostics() const noexcept { return m_diagnostics; }
+
+std::uint8_t HierarchicalTimeBinScheduler::clampBin(std::uint8_t requested) const noexcept {
+  return std::min(requested, m_max_bin);
+}
+
+void HierarchicalTimeBinScheduler::eraseFromBin(std::uint32_t element_index, std::uint8_t bin_index) {
+  auto& members = m_elements_by_bin[bin_index];
+  const std::size_t remove_pos = m_position_in_bin[element_index];
+
+  if (remove_pos >= members.size()) {
+    throw std::runtime_error("bin position metadata corrupted");
+  }
+
+  const std::uint32_t last_element = members.back();
+  members[remove_pos] = last_element;
+  m_position_in_bin[last_element] = remove_pos;
+  members.pop_back();
+}
+
+void HierarchicalTimeBinScheduler::insertIntoBin(std::uint32_t element_index, std::uint8_t bin_index) {
+  auto& members = m_elements_by_bin[bin_index];
+  m_position_in_bin[element_index] = members.size();
+  members.push_back(element_index);
+}
+
+void HierarchicalTimeBinScheduler::rebuildActiveSet() {
+  m_active_elements.clear();
+
+  if (m_diagnostics.occupancy_by_bin.size() != m_elements_by_bin.size()) {
+    m_diagnostics.occupancy_by_bin.assign(m_elements_by_bin.size(), 0U);
+  }
+  if (m_diagnostics.active_count_by_bin.size() != m_elements_by_bin.size()) {
+    m_diagnostics.active_count_by_bin.assign(m_elements_by_bin.size(), 0U);
+  }
+
+  std::fill(m_diagnostics.active_count_by_bin.begin(), m_diagnostics.active_count_by_bin.end(), 0U);
+  std::fill(m_diagnostics.occupancy_by_bin.begin(), m_diagnostics.occupancy_by_bin.end(), 0U);
+
+  for (std::size_t bin = 0; bin < m_elements_by_bin.size(); ++bin) {
+    const auto& members = m_elements_by_bin[bin];
+    m_diagnostics.occupancy_by_bin[bin] = static_cast<std::uint32_t>(members.size());
+
+    if (!isBinActiveAtTick(static_cast<std::uint8_t>(bin), m_current_tick)) {
+      continue;
+    }
+
+    for (const std::uint32_t element : members) {
+      if (m_hot.next_activation_tick[element] != m_current_tick) {
+        continue;
+      }
+      m_active_elements.push_back(element);
+      m_hot.active_flag[element] = 1U;
+      ++m_diagnostics.active_count_by_bin[bin];
+    }
+  }
+
+  std::sort(m_active_elements.begin(), m_active_elements.end());
+
+  m_diagnostics.active_elements = static_cast<std::uint32_t>(m_active_elements.size());
+  const auto total_elements = static_cast<double>(m_hot.size());
+  m_diagnostics.active_fraction = total_elements > 0.0
+      ? static_cast<double>(m_diagnostics.active_elements) / total_elements
+      : 0.0;
+
+  m_diagnostics.most_active_bin = 0;
+  std::uint32_t best = 0;
+  for (std::uint8_t bin = 0; bin <= m_max_bin; ++bin) {
+    if (m_diagnostics.active_count_by_bin[bin] > best) {
+      best = m_diagnostics.active_count_by_bin[bin];
+      m_diagnostics.most_active_bin = bin;
+    }
+  }
+
+  m_diagnostics.collapse_candidates = 0;
+  if (m_hot.size() > 0) {
+    const auto finest_occupancy = m_diagnostics.occupancy_by_bin[0];
+    if (finest_occupancy * 4U >= m_hot.size() * 3U) {
+      m_diagnostics.collapse_candidates = finest_occupancy;
+    }
+  }
+}
+
+void HierarchicalTimeBinScheduler::applyPendingTransitions() {
+  for (const std::uint32_t element : m_active_elements) {
+    const std::uint8_t pending = m_hot.pending_bin_index[element];
+    if (pending == k_unset_pending_bin) {
+      continue;
+    }
+
+    const std::uint8_t old_bin = m_hot.bin_index[element];
+    const std::uint8_t new_bin = clampBin(pending);
+    if (new_bin == old_bin) {
+      m_hot.pending_bin_index[element] = k_unset_pending_bin;
+      continue;
+    }
+
+    const std::uint64_t new_period = binPeriodTicks(new_bin);
+    if (m_current_tick % new_period != 0) {
+      ++m_diagnostics.illegal_transition_attempts;
+      continue;
+    }
+
+    eraseFromBin(element, old_bin);
+    insertIntoBin(element, new_bin);
+    m_hot.bin_index[element] = new_bin;
+
+    if (new_bin < old_bin) {
+      ++m_diagnostics.promoted_elements;
+    } else {
+      ++m_diagnostics.demoted_elements;
+    }
+
+    m_hot.pending_bin_index[element] = k_unset_pending_bin;
+  }
+}
+
+TimeBinMappingResult mapDtToTimeBin(double dt_time_code, const TimeStepLimits& limits) {
+  if (limits.min_dt_time_code <= 0.0 || limits.max_dt_time_code <= 0.0) {
+    throw std::invalid_argument("timestep limits must be positive");
+  }
+  if (limits.max_dt_time_code < limits.min_dt_time_code) {
+    throw std::invalid_argument("max_dt_time_code must be >= min_dt_time_code");
+  }
+
+  TimeBinMappingResult result{};
+  const double clamped_dt = std::clamp(dt_time_code, limits.min_dt_time_code, limits.max_dt_time_code);
+  result.clipped_to_min = clamped_dt == limits.min_dt_time_code && dt_time_code < limits.min_dt_time_code;
+  result.clipped_to_max = clamped_dt == limits.max_dt_time_code && dt_time_code > limits.max_dt_time_code;
+
+  std::uint8_t mapped_bin = 0;
+  for (std::uint8_t bin = 0; bin <= limits.max_bin; ++bin) {
+    const double dt_for_bin = binIndexToDt(bin, limits);
+    if (dt_for_bin <= clamped_dt) {
+      mapped_bin = bin;
+    } else {
+      break;
+    }
+  }
+  result.bin_index = mapped_bin;
+  return result;
+}
+
+double binIndexToDt(std::uint8_t bin_index, const TimeStepLimits& limits) {
+  return limits.min_dt_time_code * static_cast<double>(powerOfTwo(std::min(bin_index, limits.max_bin)));
+}
+
+double computeCflTimeStep(const CflTimeStepInput& input, double c_cfl) {
+  if (input.cell_width_code <= 0.0) {
+    throw std::invalid_argument("cell_width_code must be positive");
+  }
+  if (c_cfl <= 0.0) {
+    throw std::invalid_argument("c_cfl must be positive");
+  }
+
+  const double denom = std::abs(input.flow_speed_code) + std::max(input.sound_speed_code, 0.0);
+  if (denom <= 0.0) {
+    return std::numeric_limits<double>::infinity();
+  }
+
+  return c_cfl * (input.cell_width_code / denom);
+}
+
+double computeGravityTimeStep(const GravityTimeStepInput& input, double eta) {
+  if (input.softening_length_code <= 0.0) {
+    throw std::invalid_argument("softening_length_code must be positive");
+  }
+  if (eta <= 0.0) {
+    throw std::invalid_argument("eta must be positive");
+  }
+
+  const double accel = std::abs(input.acceleration_magnitude_code);
+  if (accel == 0.0) {
+    return std::numeric_limits<double>::infinity();
+  }
+
+  return eta * std::sqrt(input.softening_length_code / accel);
+}
+
+double combineTimeStepCriteria(
+    std::uint32_t element_index,
+    const TimeStepCriteriaHooks& hooks,
+    double fallback_dt_time_code) {
+  if (fallback_dt_time_code <= 0.0) {
+    throw std::invalid_argument("fallback_dt_time_code must be positive");
+  }
+
+  double dt = fallback_dt_time_code;
+  if (hooks.cfl_hook) {
+    dt = std::min(dt, finitePositiveOrInf(hooks.cfl_hook(element_index)));
+  }
+  if (hooks.gravity_hook) {
+    dt = std::min(dt, finitePositiveOrInf(hooks.gravity_hook(element_index)));
+  }
+  if (hooks.source_hook) {
+    dt = std::min(dt, finitePositiveOrInf(hooks.source_hook(element_index)));
+  }
+  if (hooks.user_clamp_hook) {
+    dt = std::min(dt, finitePositiveOrInf(hooks.user_clamp_hook(element_index)));
+  }
+
+  return dt;
 }
 
 double computeScaleFactorRate(const LambdaCdmBackground& background, double scale_factor) {
