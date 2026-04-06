@@ -134,7 +134,8 @@ add_library(cosmosim_amr STATIC src/amr/amr_module.cpp)
 add_library(cosmosim_physics STATIC src/physics/physics_module.cpp)
 add_library(cosmosim_io STATIC
   src/io/io_module.cpp
-  src/io/ic_reader.cpp)
+  src/io/ic_reader.cpp
+  src/io/snapshot_hdf5.cpp)
 add_library(cosmosim_analysis STATIC src/analysis/analysis_module.cpp)
 add_library(cosmosim_parallel STATIC src/parallel/parallel_module.cpp)
 add_library(cosmosim_utils STATIC src/utils/utils_module.cpp)
@@ -286,6 +287,10 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_unit_ic_reader PRIVATE cosmosim_io)
   add_test(NAME unit_ic_reader COMMAND test_unit_ic_reader)
 
+  add_executable(test_unit_snapshot_hdf5_schema tests/unit/test_snapshot_hdf5_schema.cpp)
+  target_link_libraries(test_unit_snapshot_hdf5_schema PRIVATE cosmosim_io)
+  add_test(NAME unit_snapshot_hdf5_schema COMMAND test_unit_snapshot_hdf5_schema)
+
   add_executable(test_unit_tree_pm_split_kernel tests/unit/test_tree_pm_split_kernel.cpp)
   target_link_libraries(test_unit_tree_pm_split_kernel PRIVATE cosmosim_gravity)
   add_test(NAME unit_tree_pm_split_kernel COMMAND test_unit_tree_pm_split_kernel)
@@ -298,6 +303,10 @@ if(COSMOSIM_ENABLE_TESTS)
   add_executable(test_integration_ic_generated_pipeline tests/integration/test_ic_generated_pipeline.cpp)
   target_link_libraries(test_integration_ic_generated_pipeline PRIVATE cosmosim_all)
   add_test(NAME integration_ic_generated_pipeline COMMAND test_integration_ic_generated_pipeline)
+
+  add_executable(test_integration_snapshot_hdf5_roundtrip tests/integration/test_snapshot_hdf5_roundtrip.cpp)
+  target_link_libraries(test_integration_snapshot_hdf5_roundtrip PRIVATE cosmosim_all)
+  add_test(NAME integration_snapshot_hdf5_roundtrip COMMAND test_integration_snapshot_hdf5_roundtrip)
 
   add_executable(test_integration_tree_gravity_vs_direct tests/integration/test_tree_gravity_vs_direct.cpp)
   target_link_libraries(test_integration_tree_gravity_vs_direct PRIVATE cosmosim_gravity)
@@ -354,6 +363,9 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
 
   add_executable(bench_ic_reader_streaming bench/bench_ic_reader_streaming.cpp)
   target_link_libraries(bench_ic_reader_streaming PRIVATE cosmosim_io)
+
+  add_executable(bench_snapshot_hdf5_io bench/bench_snapshot_hdf5_io.cpp)
+  target_link_libraries(bench_snapshot_hdf5_io PRIVATE cosmosim_io)
 
   add_executable(bench_pm_solver bench/bench_pm_solver.cpp)
   target_link_libraries(bench_pm_solver PRIVATE cosmosim_gravity)
