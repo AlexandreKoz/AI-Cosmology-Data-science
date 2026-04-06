@@ -129,7 +129,9 @@ add_library(cosmosim_gravity STATIC
   src/gravity/tree_ordering.cpp
   src/gravity/tree_gravity.cpp
   src/gravity/tree_pm_coupling.cpp)
-add_library(cosmosim_hydro STATIC src/hydro/hydro_module.cpp)
+add_library(cosmosim_hydro STATIC
+  src/hydro/hydro_module.cpp
+  src/hydro/hydro_core_solver.cpp)
 add_library(cosmosim_amr STATIC src/amr/amr_module.cpp)
 add_library(cosmosim_physics STATIC src/physics/physics_module.cpp)
 add_library(cosmosim_io STATIC
@@ -274,6 +276,14 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_unit_tree_gravity PRIVATE cosmosim_gravity)
   add_test(NAME unit_tree_gravity COMMAND test_unit_tree_gravity)
 
+  add_executable(test_unit_hydro_core_solver tests/unit/test_hydro_core_solver.cpp)
+  target_link_libraries(test_unit_hydro_core_solver PRIVATE cosmosim_hydro)
+  add_test(NAME unit_hydro_core_solver COMMAND test_unit_hydro_core_solver)
+
+  add_executable(test_integration_hydro_sod_like tests/integration/test_hydro_sod_like.cpp)
+  target_link_libraries(test_integration_hydro_sod_like PRIVATE cosmosim_hydro)
+  add_test(NAME integration_hydro_sod_like COMMAND test_integration_hydro_sod_like)
+
 
   add_executable(test_integration_simulation_mode_toy_runs tests/integration/test_simulation_mode_toy_runs.cpp)
   target_link_libraries(test_integration_simulation_mode_toy_runs PRIVATE cosmosim_core)
@@ -389,6 +399,9 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
 
   add_executable(bench_tree_pm_coupling bench/bench_tree_pm_coupling.cpp)
   target_link_libraries(bench_tree_pm_coupling PRIVATE cosmosim_gravity)
+
+  add_executable(bench_hydro_face_sweep bench/bench_hydro_face_sweep.cpp)
+  target_link_libraries(bench_hydro_face_sweep PRIVATE cosmosim_hydro)
 endif()
 
 cosmosim_generate_feature_summary(
