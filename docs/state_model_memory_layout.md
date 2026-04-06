@@ -39,3 +39,21 @@ Conservative assumptions:
 2. Species tags are encoded as a bounded integer enum (0..4).
 3. Patch-to-cell mapping uses contiguous ranges (`first_cell`, `cell_count`) for locality and future
    MPI packing.
+
+## Reusable SoA substrate (`soa_storage.hpp`)
+
+`core/soa_storage.hpp` adds a reusable SoA substrate built around aligned contiguous field arrays,
+field-keyed typed span access, and gather/scatter helpers for active kernels:
+
+- `SoaFieldArray<T>`: aligned contiguous field storage with explicit `size`, `capacity`,
+  `reserve`, `resize`, `swapErase`, and stable compaction.
+- `ParticleSoaStorage`: canonical particle-oriented field pack (`pos_*`, `vel_*`, `mass`, `id`,
+  `rho`, `u_int`) with typed access via `ParticleSoaField`.
+- `gatherSpan` / `scatterSpan`: index-driven data movement for active kernels.
+
+Schema/provenance implications:
+
+1. This change is in-memory only and introduces no snapshot schema rename.
+2. Canonical external naming remains unchanged in configuration and restart metadata.
+3. The substrate keeps host-side semantics compatible with future device mirrors by using
+   per-field contiguous arrays and explicit logical sizes.

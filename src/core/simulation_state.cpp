@@ -342,22 +342,25 @@ ParticleActiveView buildParticleActiveView(
   workspace.particle_velocity_z_peculiar.resize(active_particle_indices.size());
   workspace.particle_mass_code.resize(active_particle_indices.size());
 
-  for (std::size_t i = 0; i < active_particle_indices.size(); ++i) {
-    const std::uint32_t source = active_particle_indices[i];
+  for (const std::uint32_t source : active_particle_indices) {
+    // Keep an explicit bounds pass so release builds fail fast with a clear
+    // exception rather than relying on debug-only checks in gatherSpan.
     if (source >= state.particles.size()) {
       throw std::out_of_range("buildParticleActiveView: particle index out of range");
     }
-
-    workspace.particle_id[i] = state.particle_sidecar.particle_id[source];
-    workspace.particle_species_tag[i] = state.particle_sidecar.species_tag[source];
-    workspace.particle_position_x_comoving[i] = state.particles.position_x_comoving[source];
-    workspace.particle_position_y_comoving[i] = state.particles.position_y_comoving[source];
-    workspace.particle_position_z_comoving[i] = state.particles.position_z_comoving[source];
-    workspace.particle_velocity_x_peculiar[i] = state.particles.velocity_x_peculiar[source];
-    workspace.particle_velocity_y_peculiar[i] = state.particles.velocity_y_peculiar[source];
-    workspace.particle_velocity_z_peculiar[i] = state.particles.velocity_z_peculiar[source];
-    workspace.particle_mass_code[i] = state.particles.mass_code[source];
   }
+
+  // Gather hot/cold lanes into compact contiguous buffers used by step-local
+  // kernels. The workspace owns storage; views remain valid until resize/clear.
+  gatherSpan<std::uint64_t>(state.particle_sidecar.particle_id, active_particle_indices, workspace.particle_id);
+  gatherSpan<std::uint32_t>(state.particle_sidecar.species_tag, active_particle_indices, workspace.particle_species_tag);
+  gatherSpan<double>(state.particles.position_x_comoving, active_particle_indices, workspace.particle_position_x_comoving);
+  gatherSpan<double>(state.particles.position_y_comoving, active_particle_indices, workspace.particle_position_y_comoving);
+  gatherSpan<double>(state.particles.position_z_comoving, active_particle_indices, workspace.particle_position_z_comoving);
+  gatherSpan<double>(state.particles.velocity_x_peculiar, active_particle_indices, workspace.particle_velocity_x_peculiar);
+  gatherSpan<double>(state.particles.velocity_y_peculiar, active_particle_indices, workspace.particle_velocity_y_peculiar);
+  gatherSpan<double>(state.particles.velocity_z_peculiar, active_particle_indices, workspace.particle_velocity_z_peculiar);
+  gatherSpan<double>(state.particles.mass_code, active_particle_indices, workspace.particle_mass_code);
 
   return ParticleActiveView{
       .particle_id = workspace.particle_id,
@@ -384,19 +387,20 @@ CellActiveView buildCellActiveView(
   workspace.cell_velocity_z_peculiar.resize(active_cell_indices.size());
   workspace.cell_patch_index.resize(active_cell_indices.size());
 
-  for (std::size_t i = 0; i < active_cell_indices.size(); ++i) {
-    const std::uint32_t source = active_cell_indices[i];
+  for (const std::uint32_t source : active_cell_indices) {
+    // Mirror particle-view policy: explicit range validation before gather.
     if (source >= state.cells.size()) {
       throw std::out_of_range("buildCellActiveView: cell index out of range");
     }
-
-    workspace.cell_density_code[i] = state.cells.density_code[source];
-    workspace.cell_pressure_code[i] = state.cells.pressure_code[source];
-    workspace.cell_velocity_x_peculiar[i] = state.cells.velocity_x_peculiar[source];
-    workspace.cell_velocity_y_peculiar[i] = state.cells.velocity_y_peculiar[source];
-    workspace.cell_velocity_z_peculiar[i] = state.cells.velocity_z_peculiar[source];
-    workspace.cell_patch_index[i] = state.cells.patch_index[source];
   }
+
+  // Materialize compact cell lanes for branch-light active-set sweeps.
+  gatherSpan<double>(state.cells.density_code, active_cell_indices, workspace.cell_density_code);
+  gatherSpan<double>(state.cells.pressure_code, active_cell_indices, workspace.cell_pressure_code);
+  gatherSpan<double>(state.cells.velocity_x_peculiar, active_cell_indices, workspace.cell_velocity_x_peculiar);
+  gatherSpan<double>(state.cells.velocity_y_peculiar, active_cell_indices, workspace.cell_velocity_y_peculiar);
+  gatherSpan<double>(state.cells.velocity_z_peculiar, active_cell_indices, workspace.cell_velocity_z_peculiar);
+  gatherSpan<std::uint32_t>(state.cells.patch_index, active_cell_indices, workspace.cell_patch_index);
 
   return CellActiveView{
       .density_code = workspace.cell_density_code,

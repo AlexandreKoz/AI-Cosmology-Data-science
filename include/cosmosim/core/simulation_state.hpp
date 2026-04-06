@@ -12,47 +12,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include "cosmosim/core/soa_storage.hpp"
+
 namespace cosmosim::core {
-
-// 64-byte aligned allocator used by hot SoA vectors to improve cache-line behavior
-// and keep a future GPU/memory-mirror contract explicit.
-template <typename T, std::size_t k_alignment>
-class AlignedAllocator {
- public:
-  using value_type = T;
-
-  AlignedAllocator() noexcept = default;
-
-  template <typename U>
-  constexpr AlignedAllocator(const AlignedAllocator<U, k_alignment>&) noexcept {}
-
-  [[nodiscard]] T* allocate(std::size_t count);
-  void deallocate(T* ptr, std::size_t count) noexcept;
-
-  template <typename U>
-  struct rebind {
-    using other = AlignedAllocator<U, k_alignment>;
-  };
-
-  using is_always_equal = std::true_type;
-};
-
-template <typename T, typename U, std::size_t k_alignment>
-[[nodiscard]] constexpr bool operator==(
-    const AlignedAllocator<T, k_alignment>&,
-    const AlignedAllocator<U, k_alignment>&) noexcept {
-  return true;
-}
-
-template <typename T, typename U, std::size_t k_alignment>
-[[nodiscard]] constexpr bool operator!=(
-    const AlignedAllocator<T, k_alignment>&,
-    const AlignedAllocator<U, k_alignment>&) noexcept {
-  return false;
-}
-
-template <typename T>
-using AlignedVector = std::vector<T, AlignedAllocator<T, 64>>;
 
 // Canonical species tags used in sidecar accounting and invariant checks.
 enum class ParticleSpecies : std::uint8_t {
@@ -275,23 +237,5 @@ struct TransientStepWorkspace {
     std::span<const std::uint32_t> active_cell_indices,
     TransientStepWorkspace& workspace);
 
-template <typename T, std::size_t k_alignment>
-T* AlignedAllocator<T, k_alignment>::allocate(std::size_t count) {
-  if (count == 0) {
-    return nullptr;
-  }
-
-  if (count > (static_cast<std::size_t>(-1) / sizeof(T))) {
-    throw std::bad_alloc{};
-  }
-
-  void* memory = ::operator new(count * sizeof(T), std::align_val_t(k_alignment));
-  return static_cast<T*>(memory);
-}
-
-template <typename T, std::size_t k_alignment>
-void AlignedAllocator<T, k_alignment>::deallocate(T* ptr, std::size_t) noexcept {
-  ::operator delete(ptr, std::align_val_t(k_alignment));
-}
 
 }  // namespace cosmosim::core
