@@ -21,6 +21,7 @@
 #include "cosmosim/gravity/tree_gravity.hpp"
 #include "cosmosim/gravity/tree_pm_coupling.hpp"
 #include "cosmosim/hydro/hydro_module.hpp"
+#include "cosmosim/io/ic_reader.hpp"
 #include "cosmosim/io/io_module.hpp"
 #include "cosmosim/parallel/parallel_module.hpp"
 #include "cosmosim/physics/physics_module.hpp"
