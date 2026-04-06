@@ -113,7 +113,8 @@ void StepOrchestrator::executeSingleStep(
     IntegratorState& integrator_state,
     ActiveSetDescriptor active_set,
     const LambdaCdmBackground* cosmology_background,
-    TransientStepWorkspace* workspace) const {
+    TransientStepWorkspace* workspace,
+    const ModePolicy* mode_policy) const {
   if (integrator_state.dt_time_code <= 0.0) {
     throw std::invalid_argument("dt_time_code must be positive");
   }
@@ -124,6 +125,7 @@ void StepOrchestrator::executeSingleStep(
       .active_set = active_set,
       .workspace = workspace,
       .cosmology_background = cosmology_background,
+      .mode_policy = mode_policy,
       .stage = IntegrationStage::kGravityKickPre,
   };
 

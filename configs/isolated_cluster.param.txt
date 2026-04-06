@@ -10,6 +10,8 @@ coordinate_frame = comoving
 mode = isolated_cluster
 ic_file = isolated_cluster_ics.hdf5
 zoom_high_res_region = false
+hydro_boundary = reflective
+gravity_boundary = isolated_monopole
 
 [cosmology]
 omega_matter = 0.31

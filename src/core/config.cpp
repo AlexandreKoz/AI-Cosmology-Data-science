@@ -11,6 +11,7 @@
 #include <stdexcept>
 
 #include "cosmosim/core/provenance.hpp"
+#include "cosmosim/core/simulation_mode.hpp"
 
 namespace cosmosim::core {
 namespace {
@@ -268,11 +269,10 @@ void validateConfig(const SimulationConfig& config) {
   if (config.cosmology.omega_matter <= 0.0 || config.cosmology.omega_lambda < 0.0) {
     throw ConfigError("cosmology requires omega_matter > 0 and omega_lambda >= 0");
   }
-  if (config.mode.mode == SimulationMode::kZoomIn && config.mode.zoom_high_res_region &&
-      config.mode.zoom_region_file.empty()) {
-    throw ConfigError("mode.zoom_region_file is required when mode.zoom_high_res_region is true");
-  }
+  const ModePolicy policy = buildModePolicy(config.mode);
+  validateModePolicy(config, policy);
 }
+
 
 [[nodiscard]] std::string buildNormalizedText(const FrozenConfig& frozen) {
   std::ostringstream stream;
@@ -289,6 +289,8 @@ void validateConfig(const SimulationConfig& config) {
   stream << "zoom_high_res_region = " << (frozen.config.mode.zoom_high_res_region ? "true" : "false")
          << '\n';
   stream << "zoom_region_file = " << frozen.config.mode.zoom_region_file << '\n';
+  stream << "hydro_boundary = " << frozen.config.mode.hydro_boundary << '\n';
+  stream << "gravity_boundary = " << frozen.config.mode.gravity_boundary << '\n';
   stream << "\n[cosmology]\n";
   stream << "omega_matter = " << frozen.config.cosmology.omega_matter << '\n';
   stream << "omega_lambda = " << frozen.config.cosmology.omega_lambda << '\n';
@@ -384,6 +386,10 @@ void validateConfig(const SimulationConfig& config) {
       "mode.zoom_high_res_region");
   frozen.config.mode.zoom_region_file =
       requireString(entries, consumed, "mode.zoom_region_file", "");
+  frozen.config.mode.hydro_boundary = toLower(
+      requireString(entries, consumed, "mode.hydro_boundary", frozen.config.mode.hydro_boundary));
+  frozen.config.mode.gravity_boundary = toLower(
+      requireString(entries, consumed, "mode.gravity_boundary", frozen.config.mode.gravity_boundary));
 
   frozen.config.cosmology.omega_matter = parseFloating(
       requireString(entries, consumed, "cosmology.omega_matter", "0.315"),
