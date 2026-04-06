@@ -135,7 +135,8 @@ add_library(cosmosim_physics STATIC src/physics/physics_module.cpp)
 add_library(cosmosim_io STATIC
   src/io/io_module.cpp
   src/io/ic_reader.cpp
-  src/io/snapshot_hdf5.cpp)
+  src/io/snapshot_hdf5.cpp
+  src/io/restart_checkpoint.cpp)
 add_library(cosmosim_analysis STATIC src/analysis/analysis_module.cpp)
 add_library(cosmosim_parallel STATIC src/parallel/parallel_module.cpp)
 add_library(cosmosim_utils STATIC src/utils/utils_module.cpp)
@@ -291,6 +292,11 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_unit_snapshot_hdf5_schema PRIVATE cosmosim_io)
   add_test(NAME unit_snapshot_hdf5_schema COMMAND test_unit_snapshot_hdf5_schema)
 
+
+  add_executable(test_unit_restart_checkpoint_schema tests/unit/test_restart_checkpoint_schema.cpp)
+  target_link_libraries(test_unit_restart_checkpoint_schema PRIVATE cosmosim_io)
+  add_test(NAME unit_restart_checkpoint_schema COMMAND test_unit_restart_checkpoint_schema)
+
   add_executable(test_unit_tree_pm_split_kernel tests/unit/test_tree_pm_split_kernel.cpp)
   target_link_libraries(test_unit_tree_pm_split_kernel PRIVATE cosmosim_gravity)
   add_test(NAME unit_tree_pm_split_kernel COMMAND test_unit_tree_pm_split_kernel)
@@ -307,6 +313,11 @@ if(COSMOSIM_ENABLE_TESTS)
   add_executable(test_integration_snapshot_hdf5_roundtrip tests/integration/test_snapshot_hdf5_roundtrip.cpp)
   target_link_libraries(test_integration_snapshot_hdf5_roundtrip PRIVATE cosmosim_all)
   add_test(NAME integration_snapshot_hdf5_roundtrip COMMAND test_integration_snapshot_hdf5_roundtrip)
+
+
+  add_executable(test_integration_restart_checkpoint_roundtrip tests/integration/test_restart_checkpoint_roundtrip.cpp)
+  target_link_libraries(test_integration_restart_checkpoint_roundtrip PRIVATE cosmosim_all)
+  add_test(NAME integration_restart_checkpoint_roundtrip COMMAND test_integration_restart_checkpoint_roundtrip)
 
   add_executable(test_integration_tree_gravity_vs_direct tests/integration/test_tree_gravity_vs_direct.cpp)
   target_link_libraries(test_integration_tree_gravity_vs_direct PRIVATE cosmosim_gravity)
@@ -366,6 +377,9 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
 
   add_executable(bench_snapshot_hdf5_io bench/bench_snapshot_hdf5_io.cpp)
   target_link_libraries(bench_snapshot_hdf5_io PRIVATE cosmosim_io)
+
+  add_executable(bench_restart_checkpoint_latency bench/bench_restart_checkpoint_latency.cpp)
+  target_link_libraries(bench_restart_checkpoint_latency PRIVATE cosmosim_io)
 
   add_executable(bench_pm_solver bench/bench_pm_solver.cpp)
   target_link_libraries(bench_pm_solver PRIVATE cosmosim_gravity)

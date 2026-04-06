@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace cosmosim::core {
@@ -45,5 +46,6 @@ void writeProvenanceRecord(
     const std::string& file_name = "provenance.meta.txt");
 
 [[nodiscard]] std::string serializeProvenanceRecord(const ProvenanceRecord& record);
+[[nodiscard]] ProvenanceRecord deserializeProvenanceRecord(std::string_view text);
 
 }  // namespace cosmosim::core
