@@ -243,6 +243,14 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_integration_time_integration_loop PRIVATE cosmosim_all)
   add_test(NAME integration_time_integration_loop COMMAND test_integration_time_integration_loop)
 
+  add_executable(test_integration_hierarchical_time_bins tests/integration/test_hierarchical_time_bins.cpp)
+  target_link_libraries(test_integration_hierarchical_time_bins PRIVATE cosmosim_core)
+  add_test(NAME integration_hierarchical_time_bins COMMAND test_integration_hierarchical_time_bins)
+
+  add_executable(test_integration_hierarchical_timestep_regression tests/integration/test_hierarchical_timestep_regression.cpp)
+  target_link_libraries(test_integration_hierarchical_timestep_regression PRIVATE cosmosim_core)
+  add_test(NAME integration_hierarchical_timestep_regression COMMAND test_integration_hierarchical_timestep_regression)
+
   add_executable(test_integration_config_examples tests/integration/test_config_examples.cpp)
   target_link_libraries(test_integration_config_examples PRIVATE cosmosim_all)
   target_compile_definitions(test_integration_config_examples PRIVATE COSMOSIM_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
@@ -286,6 +294,8 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
   target_link_libraries(bench_scheduler_overhead PRIVATE cosmosim_core)
   add_executable(bench_active_kernel_compact_vs_full bench/bench_active_kernel_compact_vs_full.cpp)
   target_link_libraries(bench_active_kernel_compact_vs_full PRIVATE cosmosim_core)
+  add_executable(bench_time_bin_scheduler bench/bench_time_bin_scheduler.cpp)
+  target_link_libraries(bench_time_bin_scheduler PRIVATE cosmosim_core)
 endif()
 
 cosmosim_generate_feature_summary(
