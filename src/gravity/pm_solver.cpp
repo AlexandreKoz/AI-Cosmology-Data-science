@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "cosmosim/core/build_config.hpp"
+#include "cosmosim/gravity/tree_pm_split_kernel.hpp"
 
 #if COSMOSIM_ENABLE_FFTW
 #include <fftw3.h>
@@ -439,7 +440,13 @@ void PmSolver::solvePoissonPeriodic(PmGridStorage& grid, const PmSolveOptions& o
           window_correction = 1.0 / std::max(w * w, 1.0e-12);
         }
 
-        fourier[index] *= prefactor * window_correction / k2;
+        double split_filter = 1.0;
+        if (options.tree_pm_split_scale_comoving > 0.0) {
+          const double wave_number_comoving = std::sqrt(k2);
+          split_filter = treePmGaussianFourierLongRangeFilter(wave_number_comoving, options.tree_pm_split_scale_comoving);
+        }
+
+        fourier[index] *= prefactor * window_correction * split_filter / k2;
       }
     }
   }
