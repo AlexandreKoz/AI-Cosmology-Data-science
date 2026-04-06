@@ -6,15 +6,27 @@ This document defines the persistent and transient memory contract for simulatio
 
 `SimulationState` is the single ownership root for persistent run state:
 
-- `ParticleSoa`: hot particle fields in structure-of-arrays form.
-- `ParticleSidecar`: cold particle metadata (`particle_id`, species tags, ownership flags).
-- `CellSoa`: hot finite-volume cell fields.
+- `ParticleSoa`: shared gravity-hot particle skeleton (`pos_*_comoving`, `vel_*_peculiar`, `mass_code`, `time_bin`).
+- `ParticleSidecar`: shared metadata (`particle_id`, species tags, flags, rank ownership).
+- `CellSoa`: gas-cell gravity skeleton (`center_*_comoving`, `mass_code`, `time_bin`, `patch_index`).
+- `GasCellSidecar`: thermodynamics and hydro reconstruction sidecar (`density_code`, `pressure_code`, gradients, etc.).
+- `StarParticleSidecar`, `BlackHoleParticleSidecar`, `TracerParticleSidecar`: species-cold metadata blocks keyed by global particle index.
 - `PatchSoa`: AMR patch descriptors and contiguous cell ranges.
-- `SpeciesContainer`: explicit species accounting for invariant checks.
+- `SpeciesContainer`: explicit species accounting ledger.
+- `ParticleSpeciesIndex`: explicit local/global species indexing map for branch-light species iteration.
 - `StateMetadata`: schema/provenance-sensitive run metadata.
 - `ModuleSidecarRegistry`: module-specific persistent payload blocks.
 
 The ownership invariant is validated by `SimulationState::validateOwnershipInvariants()`.
+
+## Species indexing and transfer packing
+
+`ParticleSpeciesIndex::rebuild()` creates explicit species-local to global index mappings.
+This supports:
+
+- species-aware loops that avoid branching on irrelevant species fields,
+- sidecar consistency checks,
+- explicit `packSpeciesTransferPacket(...)` staging for MPI/device transfer paths.
 
 ## Transient ownership (`TransientStepWorkspace`)
 
@@ -39,6 +51,7 @@ Conservative assumptions:
 2. Species tags are encoded as a bounded integer enum (0..4).
 3. Patch-to-cell mapping uses contiguous ranges (`first_cell`, `cell_count`) for locality and future
    MPI packing.
+4. Species sidecars reference global particle indices rather than duplicating IDs.
 
 ## Reusable SoA substrate (`soa_storage.hpp`)
 
@@ -53,7 +66,7 @@ field-keyed typed span access, and gather/scatter helpers for active kernels:
 
 Schema/provenance implications:
 
-1. This change is in-memory only and introduces no snapshot schema rename.
+1. In-memory schema version advances to `2` to reflect explicit species sidecars.
 2. Canonical external naming remains unchanged in configuration and restart metadata.
 3. The substrate keeps host-side semantics compatible with future device mirrors by using
    per-field contiguous arrays and explicit logical sizes.

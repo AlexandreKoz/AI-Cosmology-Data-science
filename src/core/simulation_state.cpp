@@ -5,9 +5,12 @@
 #include <limits>
 #include <new>
 #include <sstream>
+#include <unordered_set>
 
 namespace cosmosim::core {
 namespace {
+
+constexpr std::size_t k_species_count = 5;
 
 // Species tag validity helper for sidecar-to-ledger consistency checks.
 [[nodiscard]] bool isValidSpeciesTag(std::uint32_t value) {
@@ -55,6 +58,8 @@ namespace {
 
 }  // namespace
 
+// Resize all particle skeleton lanes together so every index always addresses a
+// full gravity-hot tuple.
 void ParticleSoa::resize(std::size_t count) {
   // Keep all hot arrays in lock-step to preserve contiguous index ownership.
   position_x_comoving.resize(count);
@@ -64,19 +69,22 @@ void ParticleSoa::resize(std::size_t count) {
   velocity_y_peculiar.resize(count);
   velocity_z_peculiar.resize(count);
   mass_code.resize(count);
-  internal_energy_code.resize(count);
+  time_bin.resize(count);
 }
 
+// Report logical particle row count shared by all skeleton lanes.
 std::size_t ParticleSoa::size() const noexcept { return position_x_comoving.size(); }
 
+// Validate lock-step sizing so kernels can safely use a single index space.
 bool ParticleSoa::isConsistent() const noexcept {
   const std::size_t expected = position_x_comoving.size();
   return position_y_comoving.size() == expected && position_z_comoving.size() == expected &&
          velocity_x_peculiar.size() == expected && velocity_y_peculiar.size() == expected &&
          velocity_z_peculiar.size() == expected && mass_code.size() == expected &&
-         internal_energy_code.size() == expected;
+         time_bin.size() == expected;
 }
 
+// Resize sidecar metadata lanes in lock-step with particle skeleton rows.
 void ParticleSidecar::resize(std::size_t count) {
   // Sidecar arrays share the same particle index space as ParticleSoa.
   particle_id.resize(count);
@@ -85,33 +93,119 @@ void ParticleSidecar::resize(std::size_t count) {
   owning_rank.resize(count);
 }
 
+// Report logical metadata row count.
 std::size_t ParticleSidecar::size() const noexcept { return particle_id.size(); }
 
+// Validate sidecar lane consistency before ownership invariants are checked.
 bool ParticleSidecar::isConsistent() const noexcept {
   const std::size_t expected = particle_id.size();
   return species_tag.size() == expected && particle_flags.size() == expected &&
          owning_rank.size() == expected;
 }
 
+// Resize gravity-facing cell skeleton lanes while keeping one shared index
+// space with gas thermodynamic sidecars.
 void CellSoa::resize(std::size_t count) {
-  // Cell arrays remain lock-step for contiguous gather/scatter patterns.
-  density_code.resize(count);
-  pressure_code.resize(count);
-  velocity_x_peculiar.resize(count);
-  velocity_y_peculiar.resize(count);
-  velocity_z_peculiar.resize(count);
+  // Cell gravity skeleton remains lock-step for contiguous gather/scatter patterns.
+  center_x_comoving.resize(count);
+  center_y_comoving.resize(count);
+  center_z_comoving.resize(count);
+  mass_code.resize(count);
+  time_bin.resize(count);
   patch_index.resize(count);
 }
 
-std::size_t CellSoa::size() const noexcept { return density_code.size(); }
+// Report logical cell row count.
+std::size_t CellSoa::size() const noexcept { return center_x_comoving.size(); }
 
+// Validate gravity-cell skeleton lock-step sizes.
 bool CellSoa::isConsistent() const noexcept {
-  const std::size_t expected = density_code.size();
-  return pressure_code.size() == expected && velocity_x_peculiar.size() == expected &&
-         velocity_y_peculiar.size() == expected && velocity_z_peculiar.size() == expected &&
-         patch_index.size() == expected;
+  const std::size_t expected = center_x_comoving.size();
+  return center_y_comoving.size() == expected && center_z_comoving.size() == expected &&
+         mass_code.size() == expected && time_bin.size() == expected && patch_index.size() == expected;
 }
 
+// Resize gas-only thermodynamic and reconstruction lanes together.
+void GasCellSidecar::resize(std::size_t count) {
+  // Gas-only thermodynamic fields stay separated from gravity-hot fields.
+  density_code.resize(count);
+  pressure_code.resize(count);
+  internal_energy_code.resize(count);
+  temperature_code.resize(count);
+  sound_speed_code.resize(count);
+  recon_gradient_x.resize(count);
+  recon_gradient_y.resize(count);
+  recon_gradient_z.resize(count);
+}
+
+// Report logical gas sidecar row count.
+std::size_t GasCellSidecar::size() const noexcept { return density_code.size(); }
+
+// Validate gas-sidecar lane consistency.
+bool GasCellSidecar::isConsistent() const noexcept {
+  const std::size_t expected = density_code.size();
+  return pressure_code.size() == expected && internal_energy_code.size() == expected &&
+         temperature_code.size() == expected && sound_speed_code.size() == expected &&
+         recon_gradient_x.size() == expected && recon_gradient_y.size() == expected &&
+         recon_gradient_z.size() == expected;
+}
+
+// Resize star metadata lanes indexed by star-local rows.
+void StarParticleSidecar::resize(std::size_t count) {
+  // Star sidecar rows map 1:1 to star species-local particle indices.
+  particle_index.resize(count);
+  formation_scale_factor.resize(count);
+  birth_mass_code.resize(count);
+  metallicity_mass_fraction.resize(count);
+}
+
+// Report star sidecar row count.
+std::size_t StarParticleSidecar::size() const noexcept { return particle_index.size(); }
+
+// Validate star metadata lane consistency.
+bool StarParticleSidecar::isConsistent() const noexcept {
+  const std::size_t expected = particle_index.size();
+  return formation_scale_factor.size() == expected && birth_mass_code.size() == expected &&
+         metallicity_mass_fraction.size() == expected;
+}
+
+// Resize black-hole metadata lanes indexed by BH-local rows.
+void BlackHoleParticleSidecar::resize(std::size_t count) {
+  // Black-hole sidecar rows map 1:1 to BH species-local particle indices.
+  particle_index.resize(count);
+  subgrid_mass_code.resize(count);
+  accretion_rate_code.resize(count);
+  feedback_energy_code.resize(count);
+}
+
+// Report black-hole sidecar row count.
+std::size_t BlackHoleParticleSidecar::size() const noexcept { return particle_index.size(); }
+
+// Validate black-hole metadata lane consistency.
+bool BlackHoleParticleSidecar::isConsistent() const noexcept {
+  const std::size_t expected = particle_index.size();
+  return subgrid_mass_code.size() == expected && accretion_rate_code.size() == expected &&
+         feedback_energy_code.size() == expected;
+}
+
+// Resize tracer metadata lanes indexed by tracer-local rows.
+void TracerParticleSidecar::resize(std::size_t count) {
+  // Tracer sidecar rows map 1:1 to tracer species-local particle indices.
+  particle_index.resize(count);
+  parent_particle_id.resize(count);
+  injection_step.resize(count);
+}
+
+// Report tracer sidecar row count.
+std::size_t TracerParticleSidecar::size() const noexcept { return particle_index.size(); }
+
+// Validate tracer metadata lane consistency.
+bool TracerParticleSidecar::isConsistent() const noexcept {
+  const std::size_t expected = particle_index.size();
+  return parent_particle_id.size() == expected && injection_step.size() == expected;
+}
+
+// Resize AMR patch descriptor lanes while preserving contiguous range contract.
 void PatchSoa::resize(std::size_t count) {
   // Patch descriptors are stored in compact SoA form for traversal locality.
   patch_id.resize(count);
@@ -120,13 +214,16 @@ void PatchSoa::resize(std::size_t count) {
   cell_count.resize(count);
 }
 
+// Report patch descriptor row count.
 std::size_t PatchSoa::size() const noexcept { return patch_id.size(); }
 
+// Validate patch descriptor lane consistency.
 bool PatchSoa::isConsistent() const noexcept {
   const std::size_t expected = patch_id.size();
   return level.size() == expected && first_cell.size() == expected && cell_count.size() == expected;
 }
 
+// Sum auditable per-species ledger counts.
 std::uint64_t SpeciesContainer::totalCount() const noexcept {
   std::uint64_t total = 0;
   for (const auto count : count_by_species) {
@@ -137,7 +234,7 @@ std::uint64_t SpeciesContainer::totalCount() const noexcept {
 
 bool SpeciesContainer::isConsistentWith(const ParticleSidecar& sidecar) const noexcept {
   // Recompute measured species counts from sidecar tags and compare to ledger.
-  std::array<std::uint64_t, 5> measured{};
+  std::array<std::uint64_t, k_species_count> measured{};
   for (const auto tag : sidecar.species_tag) {
     if (!isValidSpeciesTag(tag)) {
       return false;
@@ -145,6 +242,52 @@ bool SpeciesContainer::isConsistentWith(const ParticleSidecar& sidecar) const no
     ++measured.at(tag);
   }
   return measured == count_by_species;
+}
+
+// Rebuild explicit species-local/global mapping from sidecar species tags.
+void ParticleSpeciesIndex::rebuild(const ParticleSidecar& sidecar) {
+  for (auto& indices : global_index_by_species) {
+    indices.clear();
+  }
+
+  local_index_by_global.resize(sidecar.size());
+  for (std::size_t global_index = 0; global_index < sidecar.size(); ++global_index) {
+    const auto tag = sidecar.species_tag[global_index];
+    if (!isValidSpeciesTag(tag)) {
+      throw std::invalid_argument("ParticleSpeciesIndex.rebuild: invalid species tag");
+    }
+    auto& species_indices = global_index_by_species[tag];
+    local_index_by_global[global_index] = static_cast<std::uint32_t>(species_indices.size());
+    species_indices.push_back(static_cast<std::uint32_t>(global_index));
+  }
+}
+
+// Return number of particles for one species in the current mapping.
+std::size_t ParticleSpeciesIndex::count(ParticleSpecies species) const noexcept {
+  return global_index_by_species[static_cast<std::uint32_t>(species)].size();
+}
+
+// Return immutable global indices for one species, suitable for branch-light
+// species-specific loops.
+std::span<const std::uint32_t> ParticleSpeciesIndex::globalIndices(ParticleSpecies species) const noexcept {
+  return global_index_by_species[static_cast<std::uint32_t>(species)];
+}
+
+// Translate global particle index -> species-local index.
+std::uint32_t ParticleSpeciesIndex::localIndex(std::uint32_t global_index) const {
+  if (global_index >= local_index_by_global.size()) {
+    throw std::out_of_range("ParticleSpeciesIndex.localIndex: global index out of range");
+  }
+  return local_index_by_global[global_index];
+}
+
+// Translate species-local index -> global particle index.
+std::uint32_t ParticleSpeciesIndex::globalIndex(ParticleSpecies species, std::uint32_t local_index) const {
+  const auto& species_indices = global_index_by_species[static_cast<std::uint32_t>(species)];
+  if (local_index >= species_indices.size()) {
+    throw std::out_of_range("ParticleSpeciesIndex.globalIndex: local index out of range");
+  }
+  return species_indices[local_index];
 }
 
 std::string StateMetadata::serialize() const {
@@ -219,24 +362,87 @@ const ModuleSidecarBlock* ModuleSidecarRegistry::find(std::string_view module_na
 
 std::size_t ModuleSidecarRegistry::size() const noexcept { return m_sidecars.size(); }
 
+// Resize shared particle skeleton and metadata sidecars together.
 void SimulationState::resizeParticles(std::size_t count) {
   particles.resize(count);
   particle_sidecar.resize(count);
 }
 
-void SimulationState::resizeCells(std::size_t count) { cells.resize(count); }
+// Resize cell gravity skeleton and gas thermodynamic sidecar together.
+void SimulationState::resizeCells(std::size_t count) {
+  cells.resize(count);
+  gas_cells.resize(count);
+}
 
+// Resize patch descriptor table.
 void SimulationState::resizePatches(std::size_t count) { patches.resize(count); }
 
+bool SimulationState::validateUniqueParticleIds() const {
+  // IDs are globally unique across all species in one simulation state.
+  std::unordered_set<std::uint64_t> ids;
+  ids.reserve(particle_sidecar.particle_id.size());
+  for (const auto id : particle_sidecar.particle_id) {
+    if (!ids.insert(id).second) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Recompute species-local/global index lookup tables after sidecar updates.
+void SimulationState::rebuildSpeciesIndex() { particle_species_index.rebuild(particle_sidecar); }
+
+ParticleTransferPacket SimulationState::packSpeciesTransferPacket(ParticleSpecies species_tag) const {
+  // Explicit species pack path for MPI/device transfers.
+  const auto indices = particle_species_index.globalIndices(species_tag);
+
+  ParticleTransferPacket packet;
+  packet.species = species_tag;
+  packet.particle_id.resize(indices.size());
+  packet.position_x_comoving.resize(indices.size());
+  packet.position_y_comoving.resize(indices.size());
+  packet.position_z_comoving.resize(indices.size());
+  packet.velocity_x_peculiar.resize(indices.size());
+  packet.velocity_y_peculiar.resize(indices.size());
+  packet.velocity_z_peculiar.resize(indices.size());
+  packet.mass_code.resize(indices.size());
+  packet.time_bin.resize(indices.size());
+  packet.owning_rank.resize(indices.size());
+
+  for (std::size_t i = 0; i < indices.size(); ++i) {
+    const auto source = indices[i];
+    packet.particle_id[i] = particle_sidecar.particle_id[source];
+    packet.position_x_comoving[i] = particles.position_x_comoving[source];
+    packet.position_y_comoving[i] = particles.position_y_comoving[source];
+    packet.position_z_comoving[i] = particles.position_z_comoving[source];
+    packet.velocity_x_peculiar[i] = particles.velocity_x_peculiar[source];
+    packet.velocity_y_peculiar[i] = particles.velocity_y_peculiar[source];
+    packet.velocity_z_peculiar[i] = particles.velocity_z_peculiar[source];
+    packet.mass_code[i] = particles.mass_code[source];
+    packet.time_bin[i] = particles.time_bin[source];
+    packet.owning_rank[i] = particle_sidecar.owning_rank[source];
+  }
+
+  return packet;
+}
+
+// Validate structural and semantic ownership constraints across all core SoA
+// blocks and sidecars.
 bool SimulationState::validateOwnershipInvariants() const {
   // Structural consistency of each SoA block.
   if (!particles.isConsistent() || !particle_sidecar.isConsistent() || !cells.isConsistent() ||
-      !patches.isConsistent()) {
+      !gas_cells.isConsistent() || !patches.isConsistent() || !star_particles.isConsistent() ||
+      !black_holes.isConsistent() || !tracers.isConsistent()) {
     return false;
   }
 
   // Particle hot/cold arrays must share one ownership cardinality.
   if (particles.size() != particle_sidecar.size()) {
+    return false;
+  }
+
+  // Gas hydro sidecars are cell-owned and must match cell cardinality.
+  if (cells.size() != gas_cells.size()) {
     return false;
   }
 
@@ -261,18 +467,53 @@ bool SimulationState::validateOwnershipInvariants() const {
     }
   }
 
+  // Species sidecars must reference global particles with matching species tags.
+  for (std::size_t i = 0; i < star_particles.size(); ++i) {
+    const auto index = star_particles.particle_index[i];
+    if (index >= particles.size()) {
+      return false;
+    }
+    if (particle_sidecar.species_tag[index] != static_cast<std::uint32_t>(ParticleSpecies::kStar)) {
+      return false;
+    }
+  }
+
+  for (std::size_t i = 0; i < black_holes.size(); ++i) {
+    const auto index = black_holes.particle_index[i];
+    if (index >= particles.size()) {
+      return false;
+    }
+    if (particle_sidecar.species_tag[index] != static_cast<std::uint32_t>(ParticleSpecies::kBlackHole)) {
+      return false;
+    }
+  }
+
+  for (std::size_t i = 0; i < tracers.size(); ++i) {
+    const auto index = tracers.particle_index[i];
+    if (index >= particles.size()) {
+      return false;
+    }
+    if (particle_sidecar.species_tag[index] != static_cast<std::uint32_t>(ParticleSpecies::kTracer)) {
+      return false;
+    }
+  }
+
   return true;
 }
 
+// Clear transient scheduler-selected active lists while keeping capacity.
 void ActiveIndexSet::clear() {
   particle_indices.clear();
   cell_indices.clear();
 }
 
+// Return compact particle active-view row count.
 std::size_t ParticleActiveView::size() const noexcept { return particle_id.size(); }
 
-std::size_t CellActiveView::size() const noexcept { return density_code.size(); }
+// Return compact cell active-view row count.
+std::size_t CellActiveView::size() const noexcept { return center_x_comoving.size(); }
 
+// Construct monotonic scratch allocator with optional pre-reserved capacity.
 MonotonicScratchAllocator::MonotonicScratchAllocator(std::size_t initial_capacity_bytes)
     : m_storage(initial_capacity_bytes), m_offset_bytes(0) {}
 
@@ -301,8 +542,10 @@ std::byte* MonotonicScratchAllocator::allocateBytes(std::size_t bytes, std::size
   return ptr;
 }
 
+// Reset bump pointer and retain allocated capacity for next step.
 void MonotonicScratchAllocator::reset() { m_offset_bytes = 0; }
 
+// Return currently allocated scratch arena capacity in bytes.
 std::size_t MonotonicScratchAllocator::capacityBytes() const noexcept { return m_storage.size(); }
 
 void TransientStepWorkspace::clear() {
@@ -317,16 +560,19 @@ void TransientStepWorkspace::clear() {
   particle_velocity_z_peculiar.clear();
   particle_mass_code.clear();
 
+  cell_center_x_comoving.clear();
+  cell_center_y_comoving.clear();
+  cell_center_z_comoving.clear();
+  cell_mass_code.clear();
+  cell_patch_index.clear();
   cell_density_code.clear();
   cell_pressure_code.clear();
-  cell_velocity_x_peculiar.clear();
-  cell_velocity_y_peculiar.clear();
-  cell_velocity_z_peculiar.clear();
-  cell_patch_index.clear();
 
   scratch.reset();
 }
 
+// Gather sparse particle indices into compact contiguous SoA buffers for
+// vector-friendly active kernels.
 ParticleActiveView buildParticleActiveView(
     const SimulationState& state,
     std::span<const std::uint32_t> active_particle_indices,
@@ -350,8 +596,7 @@ ParticleActiveView buildParticleActiveView(
     }
   }
 
-  // Gather hot/cold lanes into compact contiguous buffers used by step-local
-  // kernels. The workspace owns storage; views remain valid until resize/clear.
+  // Gather hot/cold lanes into compact contiguous buffers used by step-local kernels.
   gatherSpan<std::uint64_t>(state.particle_sidecar.particle_id, active_particle_indices, workspace.particle_id);
   gatherSpan<std::uint32_t>(state.particle_sidecar.species_tag, active_particle_indices, workspace.particle_species_tag);
   gatherSpan<double>(state.particles.position_x_comoving, active_particle_indices, workspace.particle_position_x_comoving);
@@ -375,17 +620,20 @@ ParticleActiveView buildParticleActiveView(
   };
 }
 
+// Gather sparse cell indices into compact contiguous buffers, combining cell
+// skeleton fields with gas thermodynamic sidecar lanes.
 CellActiveView buildCellActiveView(
     const SimulationState& state,
     std::span<const std::uint32_t> active_cell_indices,
     TransientStepWorkspace& workspace) {
   // Materialize compact cell arrays for kernel-friendly contiguous iteration.
+  workspace.cell_center_x_comoving.resize(active_cell_indices.size());
+  workspace.cell_center_y_comoving.resize(active_cell_indices.size());
+  workspace.cell_center_z_comoving.resize(active_cell_indices.size());
+  workspace.cell_mass_code.resize(active_cell_indices.size());
+  workspace.cell_patch_index.resize(active_cell_indices.size());
   workspace.cell_density_code.resize(active_cell_indices.size());
   workspace.cell_pressure_code.resize(active_cell_indices.size());
-  workspace.cell_velocity_x_peculiar.resize(active_cell_indices.size());
-  workspace.cell_velocity_y_peculiar.resize(active_cell_indices.size());
-  workspace.cell_velocity_z_peculiar.resize(active_cell_indices.size());
-  workspace.cell_patch_index.resize(active_cell_indices.size());
 
   for (const std::uint32_t source : active_cell_indices) {
     // Mirror particle-view policy: explicit range validation before gather.
@@ -395,20 +643,22 @@ CellActiveView buildCellActiveView(
   }
 
   // Materialize compact cell lanes for branch-light active-set sweeps.
-  gatherSpan<double>(state.cells.density_code, active_cell_indices, workspace.cell_density_code);
-  gatherSpan<double>(state.cells.pressure_code, active_cell_indices, workspace.cell_pressure_code);
-  gatherSpan<double>(state.cells.velocity_x_peculiar, active_cell_indices, workspace.cell_velocity_x_peculiar);
-  gatherSpan<double>(state.cells.velocity_y_peculiar, active_cell_indices, workspace.cell_velocity_y_peculiar);
-  gatherSpan<double>(state.cells.velocity_z_peculiar, active_cell_indices, workspace.cell_velocity_z_peculiar);
+  gatherSpan<double>(state.cells.center_x_comoving, active_cell_indices, workspace.cell_center_x_comoving);
+  gatherSpan<double>(state.cells.center_y_comoving, active_cell_indices, workspace.cell_center_y_comoving);
+  gatherSpan<double>(state.cells.center_z_comoving, active_cell_indices, workspace.cell_center_z_comoving);
+  gatherSpan<double>(state.cells.mass_code, active_cell_indices, workspace.cell_mass_code);
   gatherSpan<std::uint32_t>(state.cells.patch_index, active_cell_indices, workspace.cell_patch_index);
+  gatherSpan<double>(state.gas_cells.density_code, active_cell_indices, workspace.cell_density_code);
+  gatherSpan<double>(state.gas_cells.pressure_code, active_cell_indices, workspace.cell_pressure_code);
 
   return CellActiveView{
+      .center_x_comoving = workspace.cell_center_x_comoving,
+      .center_y_comoving = workspace.cell_center_y_comoving,
+      .center_z_comoving = workspace.cell_center_z_comoving,
+      .mass_code = workspace.cell_mass_code,
+      .patch_index = workspace.cell_patch_index,
       .density_code = workspace.cell_density_code,
       .pressure_code = workspace.cell_pressure_code,
-      .velocity_x_peculiar = workspace.cell_velocity_x_peculiar,
-      .velocity_y_peculiar = workspace.cell_velocity_y_peculiar,
-      .velocity_z_peculiar = workspace.cell_velocity_z_peculiar,
-      .patch_index = workspace.cell_patch_index,
   };
 }
 

@@ -26,7 +26,7 @@ enum class ParticleSpecies : std::uint8_t {
 };
 
 struct ParticleSoa {
-  // Hot particle fields (solver-facing): comoving positions + peculiar velocities.
+  // Shared gravity-hot particle fields; species-specific cold data must live in sidecars.
   AlignedVector<double> position_x_comoving;
   AlignedVector<double> position_y_comoving;
   AlignedVector<double> position_z_comoving;
@@ -34,7 +34,7 @@ struct ParticleSoa {
   AlignedVector<double> velocity_y_peculiar;
   AlignedVector<double> velocity_z_peculiar;
   AlignedVector<double> mass_code;
-  AlignedVector<double> internal_energy_code;
+  AlignedVector<std::uint8_t> time_bin;
 
   void resize(std::size_t count);
   [[nodiscard]] std::size_t size() const noexcept;
@@ -42,7 +42,7 @@ struct ParticleSoa {
 };
 
 struct ParticleSidecar {
-  // Cold particle metadata sidecar: IDs, species ownership, and flags.
+  // Shared metadata sidecar: IDs, species ownership, and rank ownership.
   AlignedVector<std::uint64_t> particle_id;
   AlignedVector<std::uint32_t> species_tag;
   AlignedVector<std::uint32_t> particle_flags;
@@ -54,13 +54,64 @@ struct ParticleSidecar {
 };
 
 struct CellSoa {
-  // Hot Eulerian cell state for finite-volume hydrodynamics.
+  // Gravity-facing gas-cell skeleton kept separate from hydro thermodynamics.
+  AlignedVector<double> center_x_comoving;
+  AlignedVector<double> center_y_comoving;
+  AlignedVector<double> center_z_comoving;
+  AlignedVector<double> mass_code;
+  AlignedVector<std::uint8_t> time_bin;
+  AlignedVector<std::uint32_t> patch_index;
+
+  void resize(std::size_t count);
+  [[nodiscard]] std::size_t size() const noexcept;
+  [[nodiscard]] bool isConsistent() const noexcept;
+};
+
+struct GasCellSidecar {
+  // Gas-cell thermodynamic and reconstruction state excluded from gravity-hot paths.
   AlignedVector<double> density_code;
   AlignedVector<double> pressure_code;
-  AlignedVector<double> velocity_x_peculiar;
-  AlignedVector<double> velocity_y_peculiar;
-  AlignedVector<double> velocity_z_peculiar;
-  AlignedVector<std::uint32_t> patch_index;
+  AlignedVector<double> internal_energy_code;
+  AlignedVector<double> temperature_code;
+  AlignedVector<double> sound_speed_code;
+  AlignedVector<double> recon_gradient_x;
+  AlignedVector<double> recon_gradient_y;
+  AlignedVector<double> recon_gradient_z;
+
+  void resize(std::size_t count);
+  [[nodiscard]] std::size_t size() const noexcept;
+  [[nodiscard]] bool isConsistent() const noexcept;
+};
+
+struct StarParticleSidecar {
+  // Stellar-formation metadata decoupled from common particle skeleton.
+  AlignedVector<std::uint32_t> particle_index;
+  AlignedVector<double> formation_scale_factor;
+  AlignedVector<double> birth_mass_code;
+  AlignedVector<double> metallicity_mass_fraction;
+
+  void resize(std::size_t count);
+  [[nodiscard]] std::size_t size() const noexcept;
+  [[nodiscard]] bool isConsistent() const noexcept;
+};
+
+struct BlackHoleParticleSidecar {
+  // Black-hole subgrid metadata sidecar.
+  AlignedVector<std::uint32_t> particle_index;
+  AlignedVector<double> subgrid_mass_code;
+  AlignedVector<double> accretion_rate_code;
+  AlignedVector<double> feedback_energy_code;
+
+  void resize(std::size_t count);
+  [[nodiscard]] std::size_t size() const noexcept;
+  [[nodiscard]] bool isConsistent() const noexcept;
+};
+
+struct TracerParticleSidecar {
+  // Tracer attachment metadata sidecar.
+  AlignedVector<std::uint32_t> particle_index;
+  AlignedVector<std::uint64_t> parent_particle_id;
+  AlignedVector<std::uint64_t> injection_step;
 
   void resize(std::size_t count);
   [[nodiscard]] std::size_t size() const noexcept;
@@ -87,9 +138,21 @@ struct SpeciesContainer {
   [[nodiscard]] bool isConsistentWith(const ParticleSidecar& sidecar) const noexcept;
 };
 
+struct ParticleSpeciesIndex {
+  // Explicit species-local to global particle index mapping.
+  std::array<AlignedVector<std::uint32_t>, 5> global_index_by_species;
+  AlignedVector<std::uint32_t> local_index_by_global;
+
+  void rebuild(const ParticleSidecar& sidecar);
+  [[nodiscard]] std::size_t count(ParticleSpecies species) const noexcept;
+  [[nodiscard]] std::span<const std::uint32_t> globalIndices(ParticleSpecies species) const noexcept;
+  [[nodiscard]] std::uint32_t localIndex(std::uint32_t global_index) const;
+  [[nodiscard]] std::uint32_t globalIndex(ParticleSpecies species, std::uint32_t local_index) const;
+};
+
 struct StateMetadata {
   // Schema/provenance fields that must remain stable across restart/snapshot workflows.
-  std::uint32_t schema_version = 1;
+  std::uint32_t schema_version = 2;
   std::string run_name = "cosmosim_run";
   std::uint64_t normalized_config_hash = 0;
   std::string normalized_config_hash_hex;
@@ -120,14 +183,34 @@ class ModuleSidecarRegistry {
   std::unordered_map<std::string, ModuleSidecarBlock> m_sidecars;
 };
 
+struct ParticleTransferPacket {
+  // Species-specific transfer packet for MPI or host-device staging.
+  ParticleSpecies species = ParticleSpecies::kDarkMatter;
+  AlignedVector<std::uint64_t> particle_id;
+  AlignedVector<double> position_x_comoving;
+  AlignedVector<double> position_y_comoving;
+  AlignedVector<double> position_z_comoving;
+  AlignedVector<double> velocity_x_peculiar;
+  AlignedVector<double> velocity_y_peculiar;
+  AlignedVector<double> velocity_z_peculiar;
+  AlignedVector<double> mass_code;
+  AlignedVector<std::uint8_t> time_bin;
+  AlignedVector<std::uint32_t> owning_rank;
+};
+
 class SimulationState {
  public:
   // Single ownership root for persistent run state.
   ParticleSoa particles;
   ParticleSidecar particle_sidecar;
   CellSoa cells;
+  GasCellSidecar gas_cells;
   PatchSoa patches;
   SpeciesContainer species;
+  ParticleSpeciesIndex particle_species_index;
+  StarParticleSidecar star_particles;
+  BlackHoleParticleSidecar black_holes;
+  TracerParticleSidecar tracers;
   StateMetadata metadata;
   ModuleSidecarRegistry sidecars;
 
@@ -136,6 +219,10 @@ class SimulationState {
   void resizePatches(std::size_t count);
 
   [[nodiscard]] bool validateOwnershipInvariants() const;
+  [[nodiscard]] bool validateUniqueParticleIds() const;
+  void rebuildSpeciesIndex();
+
+  [[nodiscard]] ParticleTransferPacket packSpeciesTransferPacket(ParticleSpecies species_tag) const;
 };
 
 struct ActiveIndexSet {
@@ -163,12 +250,13 @@ struct ParticleActiveView {
 
 struct CellActiveView {
   // Compact contiguous cell spans materialized in the transient workspace.
+  std::span<const double> center_x_comoving;
+  std::span<const double> center_y_comoving;
+  std::span<const double> center_z_comoving;
+  std::span<const double> mass_code;
+  std::span<const std::uint32_t> patch_index;
   std::span<const double> density_code;
   std::span<const double> pressure_code;
-  std::span<const double> velocity_x_peculiar;
-  std::span<const double> velocity_y_peculiar;
-  std::span<const double> velocity_z_peculiar;
-  std::span<const std::uint32_t> patch_index;
 
   [[nodiscard]] std::size_t size() const noexcept;
 };
@@ -214,12 +302,13 @@ struct TransientStepWorkspace {
   AlignedVector<double> particle_mass_code;
 
   // Compact cell active-set buffers.
+  AlignedVector<double> cell_center_x_comoving;
+  AlignedVector<double> cell_center_y_comoving;
+  AlignedVector<double> cell_center_z_comoving;
+  AlignedVector<double> cell_mass_code;
+  AlignedVector<std::uint32_t> cell_patch_index;
   AlignedVector<double> cell_density_code;
   AlignedVector<double> cell_pressure_code;
-  AlignedVector<double> cell_velocity_x_peculiar;
-  AlignedVector<double> cell_velocity_y_peculiar;
-  AlignedVector<double> cell_velocity_z_peculiar;
-  AlignedVector<std::uint32_t> cell_patch_index;
 
   // Monotonic scratch arena reused between steps via reset().
   MonotonicScratchAllocator scratch;
@@ -236,6 +325,5 @@ struct TransientStepWorkspace {
     const SimulationState& state,
     std::span<const std::uint32_t> active_cell_indices,
     TransientStepWorkspace& workspace);
-
 
 }  // namespace cosmosim::core
