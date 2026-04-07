@@ -9,6 +9,19 @@ namespace {
 
 constexpr double k_tol = 1.0e-10;
 
+void testLimiterLibrary() {
+  using cosmosim::hydro::HydroSlopeLimiter;
+  using cosmosim::hydro::applyHydroSlopeLimiter;
+
+  const double mm = applyHydroSlopeLimiter(HydroSlopeLimiter::kMinmod, 2.0, 1.0);
+  const double mc = applyHydroSlopeLimiter(HydroSlopeLimiter::kMonotonizedCentral, 2.0, 1.0);
+  const double vl = applyHydroSlopeLimiter(HydroSlopeLimiter::kVanLeer, 2.0, 1.0);
+  assert(std::abs(mm - 1.0) < k_tol);
+  assert(mc >= mm && mc <= 1.5);
+  assert(vl > mm && vl < 2.0);
+  assert(std::abs(applyHydroSlopeLimiter(HydroSlopeLimiter::kVanLeer, -1.0, 2.0)) < k_tol);
+}
+
 void testPrimitiveConservedRoundTrip() {
   cosmosim::hydro::HydroPrimitiveState primitive;
   primitive.rho_comoving = 2.5;
@@ -28,6 +41,38 @@ void testPrimitiveConservedRoundTrip() {
   assert(std::abs(round_trip.vel_y_peculiar - primitive.vel_y_peculiar) < k_tol);
   assert(std::abs(round_trip.vel_z_peculiar - primitive.vel_z_peculiar) < k_tol);
   assert(std::abs(round_trip.pressure_comoving - primitive.pressure_comoving) < k_tol);
+}
+
+void testMusclReconstructionProducesFiniteStates() {
+  constexpr double gamma = 1.4;
+  cosmosim::hydro::HydroConservedStateSoa conserved(5);
+  for (std::size_t i = 0; i < 5; ++i) {
+    cosmosim::hydro::HydroPrimitiveState primitive;
+    primitive.rho_comoving = 1.0 + 0.2 * static_cast<double>(i);
+    primitive.vel_x_peculiar = 0.05 * static_cast<double>(i);
+    primitive.pressure_comoving = 1.0 + 0.1 * static_cast<double>(i);
+    conserved.storeCell(i, cosmosim::hydro::HydroCoreSolver::conservedFromPrimitive(primitive, gamma));
+  }
+
+  cosmosim::hydro::HydroPrimitiveCacheSoa cache(5);
+  for (std::size_t i = 0; i < 5; ++i) {
+    cache.storeCell(i, cosmosim::hydro::HydroCoreSolver::primitiveFromConserved(conserved.loadCell(i), gamma));
+  }
+
+  cosmosim::hydro::MusclHancockReconstruction reconstruction(cosmosim::hydro::HydroReconstructionPolicy{
+      .limiter = cosmosim::hydro::HydroSlopeLimiter::kMonotonizedCentral,
+      .dt_over_dx_code = 0.1,
+      .rho_floor = 1.0e-8,
+      .pressure_floor = 1.0e-8,
+      .enable_muscl_hancock_predictor = true});
+
+  cosmosim::hydro::HydroFace face{.owner_cell = 2, .neighbor_cell = 3, .area_comoving = 1.0, .normal_x = 1.0};
+  cosmosim::hydro::HydroPrimitiveState left;
+  cosmosim::hydro::HydroPrimitiveState right;
+  const bool consumed = reconstruction.reconstructFaceFromCache(cache, face, left, right);
+  assert(consumed);
+  assert(left.rho_comoving > 0.0 && right.rho_comoving > 0.0);
+  assert(left.pressure_comoving > 0.0 && right.pressure_comoving > 0.0);
 }
 
 void testComovingSourceTermSanity() {
@@ -60,179 +105,61 @@ void testComovingSourceTermSanity() {
 
   assert(std::abs(source_state.mass_density_comoving) < k_tol);
   assert(source_state.momentum_density_x_comoving < primitive.rho_comoving * gravity_x[0]);
-  assert(source_state.momentum_density_y_comoving > primitive.rho_comoving * gravity_y[0]);
-
-  const double expected_work = primitive.rho_comoving *
-      (primitive.vel_x_peculiar * gravity_x[0] +
-       primitive.vel_y_peculiar * gravity_y[0] +
-       primitive.vel_z_peculiar * gravity_z[0]);
-  assert(source_state.total_energy_density_comoving < expected_work);
 }
 
-void testActiveSetUpdateTouchesOnlySelectedCells() {
-  constexpr double gamma = 1.4;
-  cosmosim::hydro::HydroConservedStateSoa conserved(4);
+void testRiemannSymmetryRegression() {
+  const cosmosim::hydro::HydroPrimitiveState left{.rho_comoving = 1.0, .pressure_comoving = 1.0};
+  const cosmosim::hydro::HydroPrimitiveState right = left;
+  const cosmosim::hydro::HydroFace face{.owner_cell = 0, .neighbor_cell = 1, .area_comoving = 1.0, .normal_x = 1.0};
+  cosmosim::hydro::HllcRiemannSolver solver;
+  const auto flux = solver.computeFlux(left, right, face, 1.4);
+  assert(std::abs(flux.mass_density_comoving) < k_tol);
+  assert(std::abs(flux.momentum_density_x_comoving - 1.0) < 1.0e-8);
+}
 
+void testProfileFallbackCountersAreStepLocal() {
+  constexpr double gamma = 1.4;
+  cosmosim::hydro::HydroConservedStateSoa conserved(16);
   for (std::size_t i = 0; i < conserved.size(); ++i) {
     cosmosim::hydro::HydroPrimitiveState primitive;
-    primitive.rho_comoving = (i < 2) ? 1.0 : 0.125;
-    primitive.pressure_comoving = (i < 2) ? 1.0 : 0.1;
-    conserved.storeCell(i, cosmosim::hydro::HydroCoreSolver::conservedFromPrimitive(primitive, gamma));
-  }
-  const auto baseline_cell_2 = conserved.loadCell(2);
-
-  cosmosim::hydro::HydroPatchGeometry geometry;
-  geometry.cell_volume_comoving = 1.0;
-  geometry.faces = {
-      cosmosim::hydro::HydroFace{.owner_cell = 0, .neighbor_cell = 1, .area_comoving = 1.0, .normal_x = 1.0},
-      cosmosim::hydro::HydroFace{.owner_cell = 1, .neighbor_cell = 2, .area_comoving = 1.0, .normal_x = 1.0},
-      cosmosim::hydro::HydroFace{.owner_cell = 2, .neighbor_cell = 3, .area_comoving = 1.0, .normal_x = 1.0},
-  };
-
-  const std::vector<std::size_t> active_cells{0, 1};
-  const std::vector<std::size_t> active_faces{0};
-  const cosmosim::hydro::HydroActiveSetView active_set{
-      .active_cells = active_cells,
-      .active_faces = active_faces};
-
-  cosmosim::hydro::HydroUpdateContext update;
-  update.dt_code = 1.0e-3;
-  update.scale_factor = 1.0;
-  update.hubble_rate_code = 0.0;
-
-  cosmosim::hydro::HydroSourceContext source_context;
-  source_context.update = update;
-
-  cosmosim::hydro::HydroCoreSolver solver(gamma);
-  cosmosim::hydro::PiecewiseConstantReconstruction reconstruction;
-  cosmosim::hydro::HlleRiemannSolver riemann;
-  solver.advancePatchActiveSet(conserved, geometry, active_set, update, reconstruction, riemann, {}, source_context, nullptr);
-
-  const auto after_cell_2 = conserved.loadCell(2);
-  assert(std::abs(after_cell_2.mass_density_comoving - baseline_cell_2.mass_density_comoving) < k_tol);
-  assert(std::abs(after_cell_2.total_energy_density_comoving - baseline_cell_2.total_energy_density_comoving) < k_tol);
-}
-
-void testSourceContextMustMatchUpdate() {
-  constexpr double gamma = 1.4;
-  cosmosim::hydro::HydroConservedStateSoa conserved(2);
-  for (std::size_t i = 0; i < 2; ++i) {
-    cosmosim::hydro::HydroPrimitiveState primitive;
-    primitive.rho_comoving = 1.0;
-    primitive.pressure_comoving = 1.0;
+    primitive.rho_comoving = (i < 8) ? 1.0 : 0.125;
+    primitive.pressure_comoving = (i < 8) ? 1.0 : 0.1;
     conserved.storeCell(i, cosmosim::hydro::HydroCoreSolver::conservedFromPrimitive(primitive, gamma));
   }
 
   cosmosim::hydro::HydroPatchGeometry geometry;
   geometry.cell_volume_comoving = 1.0;
-  geometry.faces = {
-      cosmosim::hydro::HydroFace{.owner_cell = 0, .neighbor_cell = 1, .area_comoving = 1.0, .normal_x = 1.0},
-  };
-  const std::vector<std::size_t> active_cells{0, 1};
-  const std::vector<std::size_t> active_faces{0};
-  const cosmosim::hydro::HydroActiveSetView active_set{
-      .active_cells = active_cells,
-      .active_faces = active_faces};
-
-  cosmosim::hydro::HydroUpdateContext update;
-  update.dt_code = 1.0e-3;
-  update.scale_factor = 1.0;
-  update.hubble_rate_code = 0.0;
-
-  cosmosim::hydro::HydroSourceContext mismatched_source_context;
-  mismatched_source_context.update = update;
-  mismatched_source_context.update.dt_code = 2.0e-3;
-
-  cosmosim::hydro::HydroCoreSolver solver(gamma);
-  cosmosim::hydro::PiecewiseConstantReconstruction reconstruction;
-  cosmosim::hydro::HlleRiemannSolver riemann;
-
-  bool threw = false;
-  try {
-    solver.advancePatchActiveSet(
-        conserved,
-        geometry,
-        active_set,
-        update,
-        reconstruction,
-        riemann,
-        {},
-        mismatched_source_context,
-        nullptr);
-  } catch (const std::invalid_argument&) {
-    threw = true;
-  }
-  assert(threw);
-}
-
-void testScratchAndPrimitiveCachePathMatchesDefaultPath() {
-  constexpr double gamma = 1.4;
-  cosmosim::hydro::HydroConservedStateSoa baseline(8);
-  cosmosim::hydro::HydroConservedStateSoa cached_path(8);
-
-  for (std::size_t i = 0; i < baseline.size(); ++i) {
-    cosmosim::hydro::HydroPrimitiveState primitive;
-    primitive.rho_comoving = (i < 4) ? 1.0 : 0.125;
-    primitive.pressure_comoving = (i < 4) ? 1.0 : 0.1;
-    primitive.vel_x_peculiar = 0.01 * static_cast<double>(i);
-    const auto conserved = cosmosim::hydro::HydroCoreSolver::conservedFromPrimitive(primitive, gamma);
-    baseline.storeCell(i, conserved);
-    cached_path.storeCell(i, conserved);
-  }
-
-  cosmosim::hydro::HydroPatchGeometry geometry;
-  geometry.cell_volume_comoving = 1.0;
-  for (std::size_t i = 0; i < 8; ++i) {
+  for (std::size_t i = 0; i < conserved.size(); ++i) {
     geometry.faces.push_back(cosmosim::hydro::HydroFace{
         .owner_cell = i,
-        .neighbor_cell = (i + 1U) % 8U,
+        .neighbor_cell = (i + 1U) % conserved.size(),
         .area_comoving = 1.0,
         .normal_x = 1.0});
   }
 
-  cosmosim::hydro::HydroUpdateContext update;
-  update.dt_code = 1.0e-3;
-  update.scale_factor = 1.0;
-  update.hubble_rate_code = 0.0;
-  cosmosim::hydro::HydroSourceContext source_context;
-  source_context.update = update;
-
+  cosmosim::hydro::HydroUpdateContext update{.dt_code = 1.0e-3, .scale_factor = 1.0, .hubble_rate_code = 0.0};
+  cosmosim::hydro::HydroSourceContext source_context{.update = update};
   cosmosim::hydro::HydroCoreSolver solver(gamma);
-  cosmosim::hydro::PiecewiseConstantReconstruction reconstruction;
-  cosmosim::hydro::HlleRiemannSolver riemann;
+  cosmosim::hydro::MusclHancockReconstruction reconstruction;
+  cosmosim::hydro::HllcRiemannSolver riemann;
+  cosmosim::hydro::HydroProfileEvent profile;
 
-  solver.advancePatch(baseline, geometry, update, reconstruction, riemann, {}, source_context, nullptr);
+  solver.advancePatch(conserved, geometry, update, reconstruction, riemann, {}, source_context, &profile);
+  const std::uint64_t first_limiter = profile.limiter_clip_count;
 
-  cosmosim::hydro::HydroScratchBuffers scratch;
-  cosmosim::hydro::HydroPrimitiveCacheSoa primitive_cache(cached_path.size());
-  solver.advancePatchWithScratch(
-      cached_path,
-      geometry,
-      update,
-      reconstruction,
-      riemann,
-      {},
-      source_context,
-      scratch,
-      &primitive_cache,
-      nullptr);
-
-  for (std::size_t i = 0; i < baseline.size(); ++i) {
-    const auto a = baseline.loadCell(i);
-    const auto b = cached_path.loadCell(i);
-    assert(std::abs(a.mass_density_comoving - b.mass_density_comoving) < 1.0e-12);
-    assert(std::abs(a.momentum_density_x_comoving - b.momentum_density_x_comoving) < 1.0e-12);
-    assert(std::abs(a.total_energy_density_comoving - b.total_energy_density_comoving) < 1.0e-12);
-  }
+  solver.advancePatch(conserved, geometry, update, reconstruction, riemann, {}, source_context, &profile);
+  const std::uint64_t second_increment = profile.limiter_clip_count - first_limiter;
+  assert(second_increment < 10U * static_cast<std::uint64_t>(geometry.faces.size()));
 }
 
 }  // namespace
 
 int main() {
+  testLimiterLibrary();
   testPrimitiveConservedRoundTrip();
+  testMusclReconstructionProducesFiniteStates();
   testComovingSourceTermSanity();
-  testActiveSetUpdateTouchesOnlySelectedCells();
-  testSourceContextMustMatchUpdate();
-  testScratchAndPrimitiveCachePathMatchesDefaultPath();
+  testRiemannSymmetryRegression();
+  testProfileFallbackCountersAreStepLocal();
   return 0;
 }

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string_view>
 #include <vector>
 
 namespace cosmosim::hydro {
@@ -148,6 +149,25 @@ class ComovingGravityExpansionSource final : public HydroSourceTerm {
       const HydroSourceContext& context) const override;
 };
 
+enum class HydroSlopeLimiter {
+  kMinmod,
+  kMonotonizedCentral,
+  kVanLeer,
+};
+
+[[nodiscard]] std::string_view hydroSlopeLimiterToString(HydroSlopeLimiter limiter);
+[[nodiscard]] HydroSlopeLimiter hydroSlopeLimiterFromString(std::string_view name);
+[[nodiscard]] double applyHydroSlopeLimiter(HydroSlopeLimiter limiter, double delta_minus, double delta_plus);
+
+struct HydroReconstructionPolicy {
+  HydroSlopeLimiter limiter = HydroSlopeLimiter::kMonotonizedCentral;
+  double dt_over_dx_code = 0.0;
+  double rho_floor = 1.0e-12;
+  double pressure_floor = 1.0e-12;
+  bool enable_muscl_hancock_predictor = true;
+  double adiabatic_index = 5.0 / 3.0;
+};
+
 class HydroReconstruction {
  public:
   virtual ~HydroReconstruction() = default;
@@ -164,6 +184,9 @@ class HydroReconstruction {
       HydroPrimitiveState& left_state,
       HydroPrimitiveState& right_state,
       double adiabatic_index) const = 0;
+
+  [[nodiscard]] virtual std::uint64_t limiterClipCount() const { return 0; }
+  [[nodiscard]] virtual std::uint64_t positivityFallbackCount() const { return 0; }
 };
 
 class PiecewiseConstantReconstruction final : public HydroReconstruction {
@@ -182,6 +205,35 @@ class PiecewiseConstantReconstruction final : public HydroReconstruction {
       double adiabatic_index) const override;
 };
 
+// MUSCL-Hancock face reconstruction with runtime-selectable slope limiter.
+// The predictor currently assumes a 1D contiguous cell ordering; otherwise it falls back to piecewise-constant.
+class MusclHancockReconstruction final : public HydroReconstruction {
+ public:
+  explicit MusclHancockReconstruction(HydroReconstructionPolicy policy = {});
+
+  [[nodiscard]] bool reconstructFaceFromCache(
+      const HydroPrimitiveCacheSoa& primitive_cache,
+      const HydroFace& face,
+      HydroPrimitiveState& left_state,
+      HydroPrimitiveState& right_state) const override;
+
+  void reconstructFace(
+      const HydroConservedStateSoa& conserved,
+      const HydroFace& face,
+      HydroPrimitiveState& left_state,
+      HydroPrimitiveState& right_state,
+      double adiabatic_index) const override;
+
+  [[nodiscard]] HydroReconstructionPolicy policy() const;
+  [[nodiscard]] std::uint64_t limiterClipCount() const override;
+  [[nodiscard]] std::uint64_t positivityFallbackCount() const override;
+
+ private:
+  HydroReconstructionPolicy m_policy;
+  mutable std::uint64_t m_limiter_clip_count = 0;
+  mutable std::uint64_t m_positivity_fallback_count = 0;
+};
+
 class HydroRiemannSolver {
  public:
   virtual ~HydroRiemannSolver() = default;
@@ -191,6 +243,8 @@ class HydroRiemannSolver {
       const HydroPrimitiveState& right_state,
       const HydroFace& face,
       double adiabatic_index) const = 0;
+
+  [[nodiscard]] virtual std::uint64_t fallbackCount() const { return 0; }
 };
 
 class HlleRiemannSolver final : public HydroRiemannSolver {
@@ -202,9 +256,27 @@ class HlleRiemannSolver final : public HydroRiemannSolver {
       double adiabatic_index) const override;
 };
 
+// HLLC is the default approximate Riemann solver with HLLE fallback for positivity/speed degeneracy.
+class HllcRiemannSolver final : public HydroRiemannSolver {
+ public:
+  [[nodiscard]] HydroConservedState computeFlux(
+      const HydroPrimitiveState& left_state,
+      const HydroPrimitiveState& right_state,
+      const HydroFace& face,
+      double adiabatic_index) const override;
+
+  [[nodiscard]] std::uint64_t fallbackCount() const override;
+
+ private:
+  mutable std::uint64_t m_fallback_count = 0;
+};
+
 struct HydroProfileEvent {
   std::uint64_t bytes_moved = 0;
   std::uint64_t face_count = 0;
+  std::uint64_t limiter_clip_count = 0;
+  std::uint64_t positivity_fallback_count = 0;
+  std::uint64_t riemann_fallback_count = 0;
   double reconstruct_ms = 0.0;
   double riemann_ms = 0.0;
   double accumulate_ms = 0.0;

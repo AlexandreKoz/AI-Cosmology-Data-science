@@ -58,8 +58,13 @@ int main() {
   source_context.update = update;
 
   cosmosim::hydro::HydroCoreSolver solver(k_gamma);
-  cosmosim::hydro::PiecewiseConstantReconstruction reconstruction;
-  cosmosim::hydro::HlleRiemannSolver riemann_solver;
+  cosmosim::hydro::MusclHancockReconstruction reconstruction(cosmosim::hydro::HydroReconstructionPolicy{
+      .limiter = cosmosim::hydro::HydroSlopeLimiter::kMonotonizedCentral,
+      .dt_over_dx_code = update.dt_code,
+      .rho_floor = 1.0e-10,
+      .pressure_floor = 1.0e-10,
+      .enable_muscl_hancock_predictor = true});
+  cosmosim::hydro::HllcRiemannSolver riemann_solver;
   cosmosim::hydro::HydroScratchBuffers scratch;
   cosmosim::hydro::HydroPrimitiveCacheSoa primitive_cache(k_cell_count);
 
@@ -107,7 +112,7 @@ int main() {
   std::cout << "bench_hydro_face_sweep"
             << " build_type=" << COSMOSIM_BUILD_TYPE
             << " threads=1"
-            << " features=hydro_core_solver"
+            << " features=hydro_core_solver+muscl_hancock+hllc"
             << " cache=primitive+scratch_reuse"
             << " setup_ms=" << setup_ms
             << " steady_ms=" << steady_ms
@@ -122,6 +127,9 @@ int main() {
             << " face_throughput_mface_s=" << face_throughput_mface_s
             << " bytes_moved=" << profile.bytes_moved
             << " effective_bandwidth_gb_s=" << effective_bandwidth_gb_s
+            << " limiter_clips=" << profile.limiter_clip_count
+            << " reconstruction_positivity_fallbacks=" << profile.positivity_fallback_count
+            << " riemann_hlle_fallbacks=" << profile.riemann_fallback_count
             << '\n';
 
   return 0;
