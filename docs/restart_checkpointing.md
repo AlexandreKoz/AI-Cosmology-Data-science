@@ -24,14 +24,26 @@ By design, this differs from GADGET/AREPO-style analysis snapshots where schedul
 ## Atomic write semantics
 
 Writers always emit to `<final>.tmp` first and only then rename into final path.
-This avoids clobbering a known-good restart with partial output.
+Finalization uses a direct rename of the temp artifact (no pre-remove step), so the old
+restart path is never explicitly deleted before replacement. This preserves atomic replace
+behavior on filesystems where `rename` is atomic.
 
 ## Integrity and provenance
 
-- `restartPayloadIntegrityHash` hashes state+integrator+scheduler+config text/hash.
+- `restartPayloadIntegrityHash` hashes state+integrator+scheduler+config text/hash+provenance.
+- The hash covers particle lanes, sidecars, species counts, star/BH/tracer sidecars, integrator
+  time-bin context, and scheduler persistent arrays (`bin_index`, `next_activation_tick`,
+  `active_flag`, `pending_bin_index`).
 - Writer stores both integer and hex payload integrity hashes.
 - Reader recomputes hash and rejects mismatches.
 - Provenance is serialized with the checkpoint for continuation auditing.
+
+## Exactness policy
+
+Restart checkpoints target exact continuation on the same build/feature path. Current tests
+expect bitwise equality for persisted arrays and strict scalar equality, with no tolerance
+window except tiny floating-point assertion slack in selected test comparisons (`< 1e-15`)
+to avoid false negatives from host-side literal conversions.
 
 ## Parallel and scale-up note
 
