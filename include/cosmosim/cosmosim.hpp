@@ -29,6 +29,7 @@
 #include "cosmosim/parallel/parallel_module.hpp"
 #include "cosmosim/physics/physics_module.hpp"
 #include "cosmosim/physics/cooling_heating.hpp"
+#include "cosmosim/physics/star_formation.hpp"
 #include "cosmosim/utils/utils_module.hpp"
 
 namespace cosmosim {
