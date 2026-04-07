@@ -8,6 +8,7 @@ project(
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(cosmosim_feature_summary)
+include(cosmosim_find_fftw)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -68,14 +69,7 @@ if(COSMOSIM_ENABLE_HDF5)
 endif()
 
 if(COSMOSIM_ENABLE_FFTW)
-  find_package(PkgConfig REQUIRED)
-  pkg_check_modules(FFTW QUIET IMPORTED_TARGET fftw3)
-  if(NOT FFTW_FOUND)
-    message(FATAL_ERROR
-      "COSMOSIM_ENABLE_FFTW=ON but fftw3 was not found via pkg-config.\n"
-      "Install FFTW development packages and ensure pkg-config can see fftw3.pc "
-      "(e.g., set PKG_CONFIG_PATH), then use preset 'pm-hdf5-fftw-debug'.")
-  endif()
+  cosmosim_find_fftw(COSMOSIM_FFTW_TARGET)
 endif()
 
 if(COSMOSIM_ENABLE_CUDA)
@@ -194,7 +188,7 @@ if(COSMOSIM_ENABLE_HDF5)
 endif()
 
 if(COSMOSIM_ENABLE_FFTW)
-  target_link_libraries(cosmosim_gravity PUBLIC PkgConfig::FFTW)
+  target_link_libraries(cosmosim_gravity PUBLIC ${COSMOSIM_FFTW_TARGET})
 endif()
 
 if(COSMOSIM_ENABLE_CUDA)

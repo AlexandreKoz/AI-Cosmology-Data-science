@@ -4,7 +4,7 @@
 
 - The implementation targets long-range periodic PM gravity and currently supports **CIC** assignment only.
 - Force interpolation uses the transpose of the assignment kernel (CIC gather) to preserve consistency.
-- FFT backend defaults to FFTW when `COSMOSIM_ENABLE_FFTW=ON`; otherwise a correctness-oriented fallback backend (`naive_dft`) is used only for small-test workflows.
+- FFT backend defaults to FFTW when `COSMOSIM_ENABLE_FFTW=ON`; otherwise a correctness-oriented fallback backend (`naive_dft`) is used only for small-test workflows and not treated as production TreePM support.
 - The periodic zero mode is explicitly set to zero (`phi_0 = 0`).
 - Units are solver-local and explicit: `box_size_mpc_comoving`, `scale_factor`, and `gravitational_constant_code` are required inputs.
 
@@ -33,6 +33,24 @@
 - `bytes_moved`
 
 These fields are intended for in-run profiling and benchmark summaries, not for correctness validation.
+
+## FFT backend discovery and validation path
+
+When `COSMOSIM_ENABLE_FFTW=ON`, CMake resolves FFTW in this order:
+
+1. `find_package(FFTW3 CONFIG)`
+2. `find_package(FFTW3 MODULE)` (`cmake/FindFFTW3.cmake`)
+3. `pkg-config` fallback (`fftw3.pc`)
+
+If all three fail, configuration stops with an actionable fatal error. The build does not silently downgrade a requested FFTW-enabled path.
+
+Recommended PM/TreePM validation workflow:
+
+```bash
+cmake --preset pm-hdf5-fftw-debug
+cmake --build --preset build-pm-hdf5-fftw-debug
+ctest --preset test-pm-hdf5-fftw-debug
+```
 
 ## Build gating
 
