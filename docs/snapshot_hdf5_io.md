@@ -8,7 +8,12 @@ centralized in `GadgetArepoSchemaMap` and are not scattered through solver modul
 
 ## Schema and provenance
 
-- Header group: `/Header` with canonical GADGET/AREPO attributes, including:
+- Canonical groups are centralized in `GadgetArepoSchemaMap`:
+  - `/Header`
+  - `/Config`
+  - `/Provenance`
+  - `/PartType0..5` with optional `/ParticleType0..5` aliases
+- Header group `/Header` stores canonical GADGET/AREPO attributes, including:
   - `NumPart_ThisFile`, `NumPart_Total`, `NumPart_Total_HighWord`, `MassTable`
   - `Time`, `Redshift`, `BoxSize`, `Omega0`, `OmegaLambda`, `OmegaBaryon`, `HubbleParam`
 - Snapshot schema metadata:
@@ -43,3 +48,20 @@ centralized in `GadgetArepoSchemaMap` and are not scattered through solver modul
   - stars -> PartType4
 - `MassTable` is currently written as zeros and per-particle masses are emitted.
 - Parallel HDF5 is not yet implemented, but APIs are structured to enable backend extension.
+
+## Feature-flag behavior and test coverage
+
+- `COSMOSIM_ENABLE_HDF5=ON`:
+  - `test_unit_snapshot_hdf5_schema` validates centralized canonical names.
+  - `test_integration_snapshot_hdf5_roundtrip` performs a real write+read round trip and asserts:
+    - state payload integrity,
+    - schema name/version,
+    - normalized config text preservation,
+    - provenance field preservation (`schema_version`, `git_sha`, `enabled_features`,
+      `config_hash_hex`),
+    - dataset alias resolution reporting.
+- `COSMOSIM_ENABLE_HDF5=OFF`:
+  - snapshot writer and reader are intentionally unavailable and throw
+    `COSMOSIM_ENABLE_HDF5=OFF` runtime errors.
+  - OFF-mode tests validate graceful unavailability only; they are not treated as I/O
+    correctness validation for the HDF5 path.
