@@ -25,6 +25,15 @@ The update is split into stages to keep AMR reuse and future GPU kernels straigh
 3. Flux accumulation (`HydroCoreSolver`): apply conservative owner/neighbor updates.
 4. Source application (`HydroSourceTerm`): apply gravity/expansion and optional future sources.
 
+Implementation is now split along these boundaries:
+
+- `src/hydro/hydro_reconstruction.cpp` + `include/cosmosim/hydro/hydro_reconstruction.hpp`:
+  limiter library, piecewise-constant reconstruction, and MUSCL-Hancock predictor/floors.
+- `src/hydro/hydro_riemann.cpp` + `include/cosmosim/hydro/hydro_riemann.hpp`:
+  HLLE and HLLC flux construction with HLL fallback on HLLC degeneracy.
+- `src/hydro/hydro_core_solver.cpp` + `include/cosmosim/hydro/hydro_core_solver.hpp`:
+  patch update scaffold (validation, cache fill, conservative flux accumulation, source-term pass, profiling).
+
 Hydro hot data remains SoA in `HydroConservedStateSoa`. Cold patch metadata is isolated in `HydroPatchColdData`.
 For hierarchical timestepping, `HydroActiveSetView` allows explicit active cell/face subsets via
 `advancePatchActiveSet` without rewriting geometry ownership.

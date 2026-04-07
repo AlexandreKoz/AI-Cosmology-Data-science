@@ -137,7 +137,9 @@ add_library(cosmosim_gravity STATIC
   src/gravity/tree_pm_coupling.cpp)
 add_library(cosmosim_hydro STATIC
   src/hydro/hydro_module.cpp
-  src/hydro/hydro_core_solver.cpp)
+  src/hydro/hydro_core_solver.cpp
+  src/hydro/hydro_reconstruction.cpp
+  src/hydro/hydro_riemann.cpp)
 add_library(cosmosim_amr STATIC src/amr/amr_module.cpp)
 add_library(cosmosim_physics STATIC src/physics/physics_module.cpp)
 add_library(cosmosim_io STATIC
@@ -242,6 +244,14 @@ if(COSMOSIM_ENABLE_TESTS)
   add_executable(test_unit_hot_cold_sidecar_layout tests/unit/test_hot_cold_sidecar_layout.cpp)
   target_link_libraries(test_unit_hot_cold_sidecar_layout PRIVATE cosmosim_core)
   add_test(NAME unit_hot_cold_sidecar_layout COMMAND test_unit_hot_cold_sidecar_layout)
+
+  add_executable(test_unit_hydro_reconstruction tests/unit/test_hydro_reconstruction.cpp)
+  target_link_libraries(test_unit_hydro_reconstruction PRIVATE cosmosim_all)
+  add_test(NAME unit_hydro_reconstruction COMMAND test_unit_hydro_reconstruction)
+
+  add_executable(test_unit_hydro_riemann tests/unit/test_hydro_riemann.cpp)
+  target_link_libraries(test_unit_hydro_riemann PRIVATE cosmosim_all)
+  add_test(NAME unit_hydro_riemann COMMAND test_unit_hydro_riemann)
 
   add_executable(test_integration_simulation_state_pipeline tests/integration/test_simulation_state_pipeline.cpp)
   target_link_libraries(test_integration_simulation_state_pipeline PRIVATE cosmosim_all)
