@@ -19,6 +19,10 @@ Aliases are accepted to improve interoperability with common GADGET/AREPO deriva
 - Velocities: `Velocities`, `Velocity`, `VEL`
 - Particle IDs: `ParticleIDs`, `ParticleID`, `ID`
 - Masses: `Masses`, `Mass`
+- Gas internal energy: `InternalEnergy`, `U`, `Internal_Energy`
+- Gas density: `Density`, `Rho`
+- Gas metallicity: `Metallicity`, `GFM_Metallicity`
+- Gas smoothing length: `SmoothingLength`, `Hsml`, `Smoothing_Length`
 
 The exact alias selected is stored in `IcImportReport::present_aliases` for provenance and audits.
 
@@ -41,9 +45,23 @@ explicit unit extraction before ingestion.
   - generated particle IDs
   - velocity zero-fill
   - mass fallback from `MassTable`
+  - gas `InternalEnergy` zero-fill when missing
+  - gas `Density` zero-fill when missing
 
-## Current limitations
+## Gas thermodynamic mapping behavior
 
-- Gas thermodynamic fields are not yet ingested into `GasCellSidecar`; this is tracked in
-  `IcImportReport::unsupported_fields`.
+- `PartType0/InternalEnergy` is ingested into `SimulationState::gas_cells.internal_energy_code`.
+- `PartType0/Density` is ingested into `SimulationState::gas_cells.density_code`.
+- Gas particles are mirrored into the gas-cell skeleton for current hydro ownership:
+  - cell centers from imported particle coordinates,
+  - cell mass from imported particle mass.
+- `GasCellSidecar` fields without direct IC equivalents in this reader revision
+  (`pressure_code`, `temperature_code`, `sound_speed_code`, reconstruction gradients) are initialized to zero.
+
+## Current limitations (explicit and narrow)
+
+- `PartType0/Metallicity` is recognized but currently reported as unsupported because the current
+  `SimulationState` schema has no gas-metallicity ownership lane.
+- `PartType0/SmoothingLength` is recognized but currently reported as unsupported because the current
+  `SimulationState` schema has no gas smoothing-length ownership lane.
 - This reader currently imports particle-centric IC payloads only.

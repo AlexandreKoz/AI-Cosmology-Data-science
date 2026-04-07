@@ -105,6 +105,28 @@ void fillSpeciesLedger(core::SimulationState& state) {
   }
 }
 
+[[nodiscard]] const std::vector<std::string>& gasFieldAliases(std::string_view canonical_key) {
+  static const std::vector<std::string> k_internal_energy_aliases = {
+      "InternalEnergy", "U", "Internal_Energy"};
+  static const std::vector<std::string> k_density_aliases = {"Density", "Rho"};
+  static const std::vector<std::string> k_metallicity_aliases = {"Metallicity", "GFM_Metallicity"};
+  static const std::vector<std::string> k_smoothing_length_aliases = {
+      "SmoothingLength", "Hsml", "Smoothing_Length"};
+  if (canonical_key == "InternalEnergy") {
+    return k_internal_energy_aliases;
+  }
+  if (canonical_key == "Density") {
+    return k_density_aliases;
+  }
+  if (canonical_key == "Metallicity") {
+    return k_metallicity_aliases;
+  }
+  if (canonical_key == "SmoothingLength") {
+    return k_smoothing_length_aliases;
+  }
+  throw std::runtime_error("unknown gas field alias key: " + std::string(canonical_key));
+}
+
 #if COSMOSIM_ENABLE_HDF5
 
 class Hdf5Handle {
@@ -388,6 +410,8 @@ IcReadResult readGadgetArepoHdf5Ic(
     total_count += static_cast<std::size_t>(count);
   }
   result.state.resizeParticles(total_count);
+  const std::size_t gas_cell_count = static_cast<std::size_t>(result.report.schema.count_by_type[0]);
+  result.state.resizeCells(gas_cell_count);
   result.state.metadata.run_name = config.output.run_name;
   result.state.metadata.scale_factor = result.report.schema.scale_factor;
 
@@ -415,10 +439,42 @@ IcReadResult readGadgetArepoHdf5Ic(
         group_name + "/ParticleIDs", options.require_particle_ids);
     const std::string masses_name = pickAlias(
         group.get(), {"Masses", "Mass"}, result.report, group_name + "/Masses", false);
+    std::string internal_energy_name;
+    std::string density_name;
+    std::string metallicity_name;
+    std::string smoothing_length_name;
+    if (type_index == 0) {
+      internal_energy_name = pickAlias(
+          group.get(),
+          gasFieldAliases("InternalEnergy"),
+          result.report,
+          group_name + "/InternalEnergy",
+          false);
+      density_name = pickAlias(
+          group.get(),
+          gasFieldAliases("Density"),
+          result.report,
+          group_name + "/Density",
+          false);
+      metallicity_name = pickAlias(
+          group.get(),
+          gasFieldAliases("Metallicity"),
+          result.report,
+          group_name + "/Metallicity",
+          false);
+      smoothing_length_name = pickAlias(
+          group.get(),
+          gasFieldAliases("SmoothingLength"),
+          result.report,
+          group_name + "/SmoothingLength",
+          false);
+    }
 
     std::vector<double> coordinates_chunk;
     std::vector<double> velocity_chunk;
     std::vector<double> mass_chunk;
+    std::vector<double> internal_energy_chunk;
+    std::vector<double> density_chunk;
     std::vector<std::uint64_t> ids_chunk;
 
     for (std::size_t local_start = 0; local_start < local_count; local_start += options.chunk_particle_count) {
@@ -467,6 +523,24 @@ IcReadResult readGadgetArepoHdf5Ic(
         result.report.defaulted_fields.push_back(group_name + "/Masses=MassTable");
       }
 
+      if (type_index == 0) {
+        if (!internal_energy_name.empty()) {
+          readDatasetChunk1d(group.get(), internal_energy_name, local_start, chunk_count, internal_energy_chunk);
+          validateFiniteField(internal_energy_chunk, group_name + "/" + internal_energy_name);
+        } else {
+          internal_energy_chunk.assign(chunk_count, 0.0);
+          result.report.defaulted_fields.push_back(group_name + "/InternalEnergy=zero");
+        }
+
+        if (!density_name.empty()) {
+          readDatasetChunk1d(group.get(), density_name, local_start, chunk_count, density_chunk);
+          validateFiniteField(density_chunk, group_name + "/" + density_name);
+        } else {
+          density_chunk.assign(chunk_count, 0.0);
+          result.report.defaulted_fields.push_back(group_name + "/Density=zero");
+        }
+      }
+
       for (std::size_t local_i = 0; local_i < chunk_count; ++local_i) {
         const std::size_t global_i = global_offset + local_start + local_i;
         const std::size_t coord_offset = local_i * 3;
@@ -484,12 +558,37 @@ IcReadResult readGadgetArepoHdf5Ic(
         result.state.particle_sidecar.particle_id[global_i] = ids_chunk[local_i];
         result.state.particle_sidecar.species_tag[global_i] = mapTypeIndexToSpeciesTag(type_index);
         result.state.particle_sidecar.owning_rank[global_i] = 0;
+
+        if (type_index == 0) {
+          const std::size_t cell_i = local_start + local_i;
+          result.state.cells.center_x_comoving[cell_i] = coordinates_chunk[coord_offset + 0];
+          result.state.cells.center_y_comoving[cell_i] = coordinates_chunk[coord_offset + 1];
+          result.state.cells.center_z_comoving[cell_i] = coordinates_chunk[coord_offset + 2];
+          result.state.cells.mass_code[cell_i] = mass_chunk[local_i];
+          result.state.cells.time_bin[cell_i] = 0;
+          result.state.cells.patch_index[cell_i] = 0;
+
+          result.state.gas_cells.density_code[cell_i] = density_chunk[local_i];
+          result.state.gas_cells.internal_energy_code[cell_i] = internal_energy_chunk[local_i];
+          result.state.gas_cells.pressure_code[cell_i] = 0.0;
+          result.state.gas_cells.temperature_code[cell_i] = 0.0;
+          result.state.gas_cells.sound_speed_code[cell_i] = 0.0;
+          result.state.gas_cells.recon_gradient_x[cell_i] = 0.0;
+          result.state.gas_cells.recon_gradient_y[cell_i] = 0.0;
+          result.state.gas_cells.recon_gradient_z[cell_i] = 0.0;
+        }
       }
     }
 
     if (type_index == 0) {
-      result.report.unsupported_fields.push_back(
-          "PartType0 thermodynamic fields currently bypassed by IC reader; hydro sidecar defaults preserved");
+      if (!metallicity_name.empty()) {
+        result.report.unsupported_fields.push_back(
+            "PartType0/Metallicity present but unmapped: SimulationState has no gas metallicity lane");
+      }
+      if (!smoothing_length_name.empty()) {
+        result.report.unsupported_fields.push_back(
+            "PartType0/SmoothingLength present but unmapped: SimulationState has no gas smoothing-length lane");
+      }
     }
 
     global_offset += local_count;
