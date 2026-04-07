@@ -473,12 +473,12 @@ void PmSolver::solvePoissonPeriodic(PmGridStorage& grid, const PmSolveOptions& o
       for (std::size_t iz = 0; iz < nz_complex; ++iz) {
         const double kz = dkz * static_cast<double>(iz);
         const std::size_t index = (ix * m_shape.ny + iy) * nz_complex + iz;
-        const std::complex<double> ikx(0.0, kx);
-        const std::complex<double> iky(0.0, ky);
-        const std::complex<double> ikz(0.0, kz);
-        grad_kx[index] = ikx * potential_k[index];
-        grad_ky[index] = iky * potential_k[index];
-        grad_kz[index] = ikz * potential_k[index];
+        const std::complex<double> minus_ikx(0.0, -kx);
+        const std::complex<double> minus_iky(0.0, -ky);
+        const std::complex<double> minus_ikz(0.0, -kz);
+        grad_kx[index] = minus_ikx * potential_k[index];
+        grad_ky[index] = minus_iky * potential_k[index];
+        grad_kz[index] = minus_ikz * potential_k[index];
       }
     }
   }
@@ -493,7 +493,14 @@ void PmSolver::solvePoissonPeriodic(PmGridStorage& grid, const PmSolveOptions& o
     std::copy(src.begin(), src.end(), fourier_dst.begin());
     const double fft_time = m_impl->inverseFft();
     auto real_values = m_impl->realGrid();
+#if COSMOSIM_ENABLE_FFTW
+    const double normalization = 1.0 / static_cast<double>(m_shape.cellCount());
+    for (std::size_t i = 0; i < dst.size(); ++i) {
+      dst[i] = real_values[i] * normalization;
+    }
+#else
     std::copy(real_values.begin(), real_values.end(), dst.begin());
+#endif
     if (profile != nullptr) {
       profile->fft_inverse_ms += fft_time;
     }

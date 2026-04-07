@@ -71,3 +71,35 @@ Progression beyond P19 remains blocked. Do not authorize P20 until `test-pm-hdf5
 ### Evidence references
 - `docs/repair_closeout_report.md`
 - `docs/repair_open_issues.md`
+
+## 2026-04-07 — ADR-REPAIR-GATE-004: Clear P20 gate only when all three preset validation paths pass
+
+### Status
+Accepted (post-repair gate policy)
+
+### Context
+P19 stabilization was previously blocked by PM FFTW-path numerical convention defects affecting:
+- `unit_pm_solver` analytic mode directionality check.
+- `integration_tree_pm_coupling_periodic` long-range amplitude consistency (`rel_l2` blow-up).
+
+After targeted PM FFTW-path correction, required validation commands were re-run and all three required presets passed:
+- `test-pm-hdf5-fftw-debug`
+- `test-hdf5-debug`
+- `test-cpu-debug`
+
+### Decision
+P20 gate is considered **CLEARED only if all three preset paths pass in the same validation cycle**:
+1. CPU-only preset path
+2. HDF5 preset path
+3. PM HDF5+FFTW preset path
+
+Any future regression in one path re-blocks the gate.
+
+### Consequences
+- Positive: Prevents partial-path closure and preserves dependency-enabled confidence.
+- Positive: Keeps PM FFTW path first-class in stabilization acceptance.
+- Tradeoff: Slightly longer validation cycle per gate decision.
+
+### Evidence references
+- `docs/repair_closeout_report.md`
+- `docs/repair_open_issues.md`
