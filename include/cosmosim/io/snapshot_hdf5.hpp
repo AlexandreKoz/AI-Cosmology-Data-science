@@ -20,7 +20,14 @@ struct GadgetArepoFieldAliases {
 };
 
 struct GadgetArepoSchemaMap {
+  std::string_view schema_name = "gadget_arepo_v1";
+  std::uint32_t schema_version = 1;
+
   std::string_view header_group = "/Header";
+  std::string_view config_group = "/Config";
+  std::string_view provenance_group = "/Provenance";
+  std::string_view config_normalized_attribute = "normalized";
+
   std::array<std::string_view, 6> part_type_group = {
       "/PartType0", "/PartType1", "/PartType2", "/PartType3", "/PartType4", "/PartType5"};
 

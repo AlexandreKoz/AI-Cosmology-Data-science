@@ -2,12 +2,25 @@
 #include <filesystem>
 #include <stdexcept>
 #include <string>
+#include <string_view>
+#include <vector>
 
 #include "cosmosim/core/build_config.hpp"
 #include "cosmosim/core/provenance.hpp"
 #include "cosmosim/io/snapshot_hdf5.hpp"
 
 namespace {
+
+[[nodiscard]] bool containsString(
+    const std::vector<std::string>& values,
+    std::string_view expected) {
+  for (const std::string& value : values) {
+    if (value == expected) {
+      return true;
+    }
+  }
+  return false;
+}
 
 void fillMixedSpeciesState(cosmosim::core::SimulationState& state) {
   state.resizeParticles(6);
@@ -60,11 +73,21 @@ void testRoundtripMixedSpeciesSnapshot() {
 
   const cosmosim::io::SnapshotReadResult roundtrip =
       cosmosim::io::readGadgetArepoSnapshotHdf5(snapshot_path, config);
+  const auto& schema = cosmosim::io::gadgetArepoSchemaMap();
 
   assert(roundtrip.state.particles.size() == state.particles.size());
   assert(roundtrip.state.validateUniqueParticleIds());
   assert(roundtrip.state.metadata.scale_factor == state.metadata.scale_factor);
   assert(roundtrip.normalized_config_text == payload.normalized_config_text);
+  assert(roundtrip.report.schema_name == schema.schema_name);
+  assert(roundtrip.report.schema_version == schema.schema_version);
+  assert(roundtrip.provenance.schema_version == payload.provenance.schema_version);
+  assert(roundtrip.provenance.git_sha == payload.provenance.git_sha);
+  assert(roundtrip.provenance.config_hash_hex == payload.provenance.config_hash_hex);
+  assert(roundtrip.provenance.enabled_features == payload.provenance.enabled_features);
+  assert(containsString(roundtrip.report.present_aliases, "/PartType0/Coordinates=Coordinates"));
+  assert(containsString(roundtrip.report.present_aliases, "/PartType1/Coordinates=Coordinates"));
+  assert(containsString(roundtrip.report.present_aliases, "/PartType4/Coordinates=Coordinates"));
 
   double checksum_in = 0.0;
   double checksum_out = 0.0;
@@ -78,15 +101,29 @@ void testRoundtripMixedSpeciesSnapshot() {
   std::filesystem::remove(snapshot_path);
 #else
   bool threw = false;
+  std::string error_message;
   try {
     cosmosim::io::SnapshotWritePayload payload;
     payload.state = &state;
     payload.config = &config;
     cosmosim::io::writeGadgetArepoSnapshotHdf5(snapshot_path, payload);
-  } catch (const std::runtime_error&) {
+  } catch (const std::runtime_error& ex) {
     threw = true;
+    error_message = ex.what();
   }
   assert(threw);
+  assert(error_message.find("COSMOSIM_ENABLE_HDF5=OFF") != std::string::npos);
+
+  threw = false;
+  error_message.clear();
+  try {
+    static_cast<void>(cosmosim::io::readGadgetArepoSnapshotHdf5(snapshot_path, config));
+  } catch (const std::runtime_error& ex) {
+    threw = true;
+    error_message = ex.what();
+  }
+  assert(threw);
+  assert(error_message.find("COSMOSIM_ENABLE_HDF5=OFF") != std::string::npos);
 #endif
 }
 

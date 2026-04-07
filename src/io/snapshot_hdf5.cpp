@@ -483,14 +483,16 @@ void writeGadgetArepoSnapshotHdf5(
   }
 
   writeHeaderArrays(header_group.get(), count_by_type, mass_table, config, state);
-  writeScalarStringAttribute(header_group.get(), "CosmoSimSchemaName", "gadget_arepo_v1");
-  writeScalarUint32Attribute(header_group.get(), "CosmoSimSchemaVersion", 1);
+  writeScalarStringAttribute(header_group.get(), "CosmoSimSchemaName", schema.schema_name);
+  writeScalarUint32Attribute(header_group.get(), "CosmoSimSchemaVersion", schema.schema_version);
   writeScalarStringAttribute(header_group.get(), "CosmoSimBuild", core::buildProvenance());
 
-  Hdf5Handle config_group(H5Gcreate2(file.get(), "/Config", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
-  writeScalarStringAttribute(config_group.get(), "normalized", payload.normalized_config_text);
+  Hdf5Handle config_group(
+      H5Gcreate2(file.get(), std::string(schema.config_group).c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+  writeScalarStringAttribute(config_group.get(), std::string(schema.config_normalized_attribute), payload.normalized_config_text);
 
-  Hdf5Handle provenance_group(H5Gcreate2(file.get(), "/Provenance", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+  Hdf5Handle provenance_group(
+      H5Gcreate2(file.get(), std::string(schema.provenance_group).c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
   writeScalarStringAttribute(provenance_group.get(), "schema_version", payload.provenance.schema_version);
   writeScalarStringAttribute(provenance_group.get(), "git_sha", payload.provenance.git_sha.empty() ? payload.git_sha : payload.provenance.git_sha);
   writeScalarStringAttribute(provenance_group.get(), "compiler_id", payload.provenance.compiler_id);
@@ -561,15 +563,17 @@ SnapshotReadResult readGadgetArepoSnapshotHdf5(
     throw std::runtime_error("failed opening snapshot file: " + input_path.string());
   }
 
-  Hdf5Handle header_group(H5Gopen2(file.get(), "/Header", H5P_DEFAULT));
+  const auto& schema = gadgetArepoSchemaMap();
+  Hdf5Handle header_group(H5Gopen2(file.get(), std::string(schema.header_group).c_str(), H5P_DEFAULT));
   if (!header_group.valid()) {
-    throw std::runtime_error("snapshot missing /Header");
+    throw std::runtime_error("snapshot missing " + std::string(schema.header_group));
   }
 
   readOptionalHeaderDouble(header_group.get(), "Time", 1.0, result.state.metadata.scale_factor);
+  result.report.schema_name = std::string(schema.schema_name);
   readScalarStringAttribute(header_group.get(), "CosmoSimSchemaName", result.report.schema_name);
 
-  std::uint32_t schema_version = 1;
+  std::uint32_t schema_version = schema.schema_version;
   {
     Hdf5Handle attr(H5Aopen(header_group.get(), "CosmoSimSchemaVersion", H5P_DEFAULT));
     if (attr.valid()) {
@@ -586,7 +590,6 @@ SnapshotReadResult readGadgetArepoSnapshotHdf5(
   }
   result.state.resizeParticles(total_count);
 
-  const auto& schema = gadgetArepoSchemaMap();
   std::size_t global_offset = 0;
   for (std::size_t type_index = 0; type_index < header_counts.size(); ++type_index) {
     const std::size_t local_count = static_cast<std::size_t>(header_counts[type_index]);
@@ -682,12 +685,15 @@ SnapshotReadResult readGadgetArepoSnapshotHdf5(
   result.state.metadata.run_name = config.output.run_name;
   result.state.rebuildSpeciesIndex();
 
-  Hdf5Handle config_group(H5Gopen2(file.get(), "/Config", H5P_DEFAULT));
+  Hdf5Handle config_group(H5Gopen2(file.get(), std::string(schema.config_group).c_str(), H5P_DEFAULT));
   if (config_group.valid()) {
-    readScalarStringAttribute(config_group.get(), "normalized", result.normalized_config_text);
+    readScalarStringAttribute(
+        config_group.get(),
+        std::string(schema.config_normalized_attribute),
+        result.normalized_config_text);
   }
 
-  Hdf5Handle provenance_group(H5Gopen2(file.get(), "/Provenance", H5P_DEFAULT));
+  Hdf5Handle provenance_group(H5Gopen2(file.get(), std::string(schema.provenance_group).c_str(), H5P_DEFAULT));
   if (provenance_group.valid()) {
     readScalarStringAttribute(provenance_group.get(), "schema_version", result.provenance.schema_version);
     readScalarStringAttribute(provenance_group.get(), "git_sha", result.provenance.git_sha);
