@@ -46,6 +46,14 @@ struct PhysicsConfig {
   std::string cooling_model = "primordial";
   std::string metal_line_table_path;
   double temperature_floor_k = 100.0;
+  std::string star_formation_model = "schmidt_kennicutt";
+  std::string star_spawning_mode = "stochastic";
+  double star_formation_efficiency_ff = 0.01;
+  double star_formation_density_threshold_code = 10.0;
+  double star_formation_temperature_threshold_k = 2.0e4;
+  double star_formation_virial_parameter_max = 1.0;
+  double star_min_particle_mass_code = 0.1;
+  std::uint64_t star_rng_seed_base = 1;
 };
 
 struct OutputConfig {
