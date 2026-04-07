@@ -1,13 +1,20 @@
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <cstdint>
+#include <sstream>
+#include <stdexcept>
 #include <vector>
 
 #include "cosmosim/core/build_config.hpp"
 #include "cosmosim/gravity/tree_pm_coupling.hpp"
 
 namespace {
+
+void requireOrThrow(bool condition, const std::string& message) {
+  if (!condition) {
+    throw std::runtime_error(message);
+  }
+}
 
 [[nodiscard]] double minimumImageDelta(double delta, double box_size_comoving) {
   return delta - box_size_comoving * std::nearbyint(delta / box_size_comoving);
@@ -98,8 +105,23 @@ void testPeriodicTreePmAgainstDirectReference() {
   }
 
   const double rel_l2 = std::sqrt(err_norm / std::max(ref_norm, 1.0e-30));
-  assert(rel_l2 < 1.5);
-  assert(diagnostics.composition_error_at_split < 1.0e-12);
+#if COSMOSIM_ENABLE_FFTW
+  const double max_rel_l2 = 0.75;
+#else
+  const double max_rel_l2 = 1.8;
+#endif
+
+  std::ostringstream diag;
+  diag << "TreePM periodic validation failed: build_flag.COSMOSIM_ENABLE_FFTW="
+       << (COSMOSIM_ENABLE_FFTW ? "ON" : "OFF")
+       << ", treePmSupportedByBuild()=" << (cosmosim::gravity::treePmSupportedByBuild() ? "true" : "false")
+       << ", rel_l2=" << rel_l2 << " (required <= " << max_rel_l2 << ')'
+       << ", composition_error_at_split=" << diagnostics.composition_error_at_split
+       << ", max_relative_composition_error=" << diagnostics.max_relative_composition_error;
+
+  requireOrThrow(rel_l2 < max_rel_l2, diag.str());
+  requireOrThrow(diagnostics.composition_error_at_split < 1.0e-12, diag.str());
+  requireOrThrow(diagnostics.max_relative_composition_error < 1.0e-12, diag.str());
 }
 
 }  // namespace

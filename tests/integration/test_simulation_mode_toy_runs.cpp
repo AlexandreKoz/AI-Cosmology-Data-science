@@ -1,5 +1,5 @@
 #include <array>
-#include <cassert>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -8,23 +8,29 @@
 
 namespace {
 
+void requireOrThrow(bool condition, const std::string& message) {
+  if (!condition) {
+    throw std::runtime_error(message);
+  }
+}
+
 void testPeriodicToyRunPolicyAndGhosts() {
-  const std::string config_text = R"(
-[mode]
-mode = cosmo_cube
-hydro_boundary = periodic
-gravity_boundary = periodic
-)";
+  cosmosim::core::SimulationConfig config;
+  config.mode.mode = cosmosim::core::SimulationMode::kCosmoCube;
+  config.mode.hydro_boundary = "periodic";
+  config.mode.gravity_boundary = "periodic";
 
-  const auto frozen = cosmosim::core::loadFrozenConfigFromString(config_text, "periodic_toy");
-  const auto policy = cosmosim::core::buildModePolicy(frozen.config.mode);
+  const auto policy = cosmosim::core::buildModePolicy(config.mode);
+  cosmosim::core::validateModePolicy(config, policy);
 
-  assert(policy.hydro_boundary == cosmosim::core::BoundaryCondition::kPeriodic);
-  assert(policy.gravity_boundary == cosmosim::core::GravityBoundaryModel::kPeriodicPoisson);
+  requireOrThrow(policy.hydro_boundary == cosmosim::core::BoundaryCondition::kPeriodic,
+      "cosmo_cube must map to periodic hydro boundary");
+  requireOrThrow(policy.gravity_boundary == cosmosim::core::GravityBoundaryModel::kPeriodicPoisson,
+      "cosmo_cube must map to periodic gravity boundary");
 
-  const std::array<double, 3> potential = {11.0, 12.0, 13.0};
-  std::vector<double> left(1, 0.0);
-  std::vector<double> right(1, 0.0);
+  const std::array<double, 4> potential = {11.0, 12.0, 13.0, 14.0};
+  std::vector<double> left(2, 0.0);
+  std::vector<double> right(2, 0.0);
   cosmosim::core::fillGravityPotentialGhostCells1d(
       potential,
       left,
@@ -32,24 +38,25 @@ gravity_boundary = periodic
       policy.gravity_boundary,
       -1.0);
 
-  assert(left[0] == 13.0);
-  assert(right[0] == 11.0);
+  requireOrThrow(left[0] == 13.0 && left[1] == 14.0,
+      "periodic gravity left ghosts must wrap from right interior edge");
+  requireOrThrow(right[0] == 11.0 && right[1] == 12.0,
+      "periodic gravity right ghosts must wrap from left interior edge");
 }
 
 void testIsolatedToyRunPolicyAndGhosts() {
-  const std::string config_text = R"(
-[mode]
-mode = isolated_galaxy
-hydro_boundary = open
-gravity_boundary = isolated_monopole
-)";
+  cosmosim::core::SimulationConfig config;
+  config.mode.mode = cosmosim::core::SimulationMode::kIsolatedGalaxy;
+  config.mode.hydro_boundary = "open";
+  config.mode.gravity_boundary = "isolated_monopole";
 
-  const auto frozen = cosmosim::core::loadFrozenConfigFromString(config_text, "isolated_toy");
-  const auto policy = cosmosim::core::buildModePolicy(frozen.config.mode);
-  cosmosim::core::validateModePolicy(frozen.config, policy);
+  const auto policy = cosmosim::core::buildModePolicy(config.mode);
+  cosmosim::core::validateModePolicy(config, policy);
 
-  assert(policy.hydro_boundary == cosmosim::core::BoundaryCondition::kOpen);
-  assert(policy.gravity_boundary == cosmosim::core::GravityBoundaryModel::kIsolatedMonopoleDirichlet);
+  requireOrThrow(policy.hydro_boundary == cosmosim::core::BoundaryCondition::kOpen,
+      "isolated_galaxy must map to open hydro boundary");
+  requireOrThrow(policy.gravity_boundary == cosmosim::core::GravityBoundaryModel::kIsolatedMonopoleDirichlet,
+      "isolated_galaxy must map to isolated gravity boundary");
 
   const std::array<double, 3> density = {1.0, 2.0, 3.0};
   const std::array<double, 3> velocity = {4.0, 5.0, 6.0};
@@ -72,10 +79,38 @@ gravity_boundary = isolated_monopole
        .right_pressure_code = right_pressure},
       policy.hydro_boundary);
 
-  assert(left_density[0] == 1.0);
-  assert(right_density[0] == 3.0);
-  assert(left_velocity[0] == 4.0);
-  assert(right_pressure[0] == 9.0);
+  requireOrThrow(left_density[0] == 1.0 && right_density[0] == 3.0,
+      "open hydro ghosts must clamp to edge cells");
+  requireOrThrow(left_velocity[0] == 4.0 && right_pressure[0] == 9.0,
+      "open hydro ghosts must preserve edge primitive values");
+
+  std::vector<double> left_potential(1, 0.0);
+  std::vector<double> right_potential(1, 0.0);
+  cosmosim::core::fillGravityPotentialGhostCells1d(
+      density,
+      left_potential,
+      right_potential,
+      policy.gravity_boundary,
+      -42.0);
+  requireOrThrow(left_potential[0] == -42.0 && right_potential[0] == -42.0,
+      "isolated gravity ghosts must use fixed reference potential");
+}
+
+void testModeValidationRejectsBoundaryMismatch() {
+  cosmosim::core::SimulationConfig config;
+  config.mode.mode = cosmosim::core::SimulationMode::kCosmoCube;
+  config.mode.hydro_boundary = "periodic";
+  config.mode.gravity_boundary = "isolated_monopole";
+
+  const auto policy = cosmosim::core::buildModePolicy(config.mode);
+  bool threw = false;
+  try {
+    cosmosim::core::validateModePolicy(config, policy);
+  } catch (const cosmosim::core::ConfigError&) {
+    threw = true;
+  }
+  requireOrThrow(threw,
+      "validateModePolicy must reject cosmological mode with isolated gravity boundary override");
 }
 
 }  // namespace
@@ -83,5 +118,6 @@ gravity_boundary = isolated_monopole
 int main() {
   testPeriodicToyRunPolicyAndGhosts();
   testIsolatedToyRunPolicyAndGhosts();
+  testModeValidationRejectsBoundaryMismatch();
   return 0;
 }

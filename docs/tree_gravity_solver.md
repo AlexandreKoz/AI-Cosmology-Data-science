@@ -54,3 +54,13 @@ Integration with normalized config/provenance can map directly to `TreeGravityOp
 - Unit tests: `tests/unit/test_tree_gravity.cpp`
 - Integration test: `tests/integration/test_tree_gravity_vs_direct.cpp`
 - Benchmark: `bench/bench_tree_gravity.cpp`
+
+
+## Integration validation tightening
+
+- `tests/integration/test_tree_gravity_vs_direct.cpp` remains the isolated/non-periodic trust anchor.
+- The test now checks both **tight** (`theta=0.4`) and **loose** (`theta=0.8`) opening settings against direct summation and reports max/mean relative errors.
+- Stop/go line:
+  - Tight opening must satisfy `max_rel_error < 0.03` and `mean_rel_error < 0.015`.
+  - Loose opening is required to be no more accurate than tight opening, guarding against accidental criterion inversion.
+- Diagnostics include visited/accepted node counters for auditability when tolerances fail.

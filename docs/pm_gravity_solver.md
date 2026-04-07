@@ -66,3 +66,13 @@ If TreePM is requested without FFTW support, the gate emits a clear runtime erro
 - `PmAssignmentScheme` already reserves `kTsc` for later extension.
 - FFT backend selection is represented in API (`PmSolver::fftBackendName`) and can be adapted for future cuFFT/pluggable backend wiring.
 - Current data ownership keeps PM grids (`PmGridStorage`) independent from particle state arrays.
+
+
+## Integration stop/go validation ladder
+
+- `tests/integration/test_pm_periodic_mode.cpp` is the periodic PM stop/go test.
+- The test now reports backend, cosine similarity, transverse leakage, and build-flag assumptions in failure diagnostics.
+- Tolerance policy is explicit by feature path:
+  - `COSMOSIM_ENABLE_FFTW=ON`: strict periodic spectral-shape check (`cosine_similarity > 0.9`).
+  - `COSMOSIM_ENABLE_FFTW=OFF`: fallback path is checked only for finite/non-zero response and documented as non-production.
+- This keeps CPU-only fallback useful for bring-up while preventing it from being mistaken for the FFTW validation grade.
