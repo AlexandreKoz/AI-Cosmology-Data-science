@@ -1,9 +1,0 @@
-# GADGET/AREPO-style parameter snippet for stellar evolution bookkeeping.
-StellarEvolutionEnabled               1
-StellarEvolutionTablePath             resources/stellar_evolution/default_table.csv
-StellarEvolutionTableVersion          v1_default
-StellarEvolutionSchemaVersion         stellar_evo_schema_v1
-StellarEvolutionChannelAGBFraction    0.30
-StellarEvolutionChannelCCSNFraction   0.50
-StellarEvolutionChannelSNIaFraction   0.20
-StellarEvolutionMassTolerance         1.0e-8
