@@ -272,6 +272,14 @@ void validateConfig(const SimulationConfig& config) {
   if (config.physics.temperature_floor_k <= 0.0) {
     throw ConfigError("physics.temperature_floor_k must be > 0");
   }
+  if (config.physics.sf_density_threshold_code <= 0.0 ||
+      config.physics.sf_temperature_threshold_k <= 0.0 ||
+      config.physics.sf_min_star_particle_mass_code <= 0.0) {
+    throw ConfigError("star formation thresholds and min star mass must be > 0");
+  }
+  if (config.physics.sf_epsilon_ff < 0.0 || config.physics.sf_epsilon_ff > 1.0) {
+    throw ConfigError("physics.sf_epsilon_ff must be in [0, 1]");
+  }
   const ModePolicy policy = buildModePolicy(config.mode);
   validateModePolicy(config, policy);
 }
@@ -323,6 +331,16 @@ void validateConfig(const SimulationConfig& config) {
   stream << "cooling_model = " << frozen.config.physics.cooling_model << '\n';
   stream << "metal_line_table_path = " << frozen.config.physics.metal_line_table_path << '\n';
   stream << "temperature_floor_k = " << frozen.config.physics.temperature_floor_k << '\n';
+  stream << "sf_density_threshold_code = " << frozen.config.physics.sf_density_threshold_code << '\n';
+  stream << "sf_temperature_threshold_k = " << frozen.config.physics.sf_temperature_threshold_k << '\n';
+  stream << "sf_min_converging_flow_rate_code = " << frozen.config.physics.sf_min_converging_flow_rate_code
+         << '\n';
+  stream << "sf_epsilon_ff = " << frozen.config.physics.sf_epsilon_ff << '\n';
+  stream << "sf_min_star_particle_mass_code = "
+         << frozen.config.physics.sf_min_star_particle_mass_code << '\n';
+  stream << "sf_stochastic_spawning = "
+         << (frozen.config.physics.sf_stochastic_spawning ? "true" : "false") << '\n';
+  stream << "sf_random_seed = " << frozen.config.physics.sf_random_seed << '\n';
   stream << "\n[output]\n";
   stream << "run_name = " << frozen.config.output.run_name << '\n';
   stream << "output_directory = " << frozen.config.output.output_directory << '\n';
@@ -464,6 +482,27 @@ void validateConfig(const SimulationConfig& config) {
   frozen.config.physics.temperature_floor_k = parseFloating(
       requireString(entries, consumed, "physics.temperature_floor_k", "100.0"),
       "physics.temperature_floor_k");
+  frozen.config.physics.sf_density_threshold_code = parseFloating(
+      requireString(entries, consumed, "physics.sf_density_threshold_code", "10.0"),
+      "physics.sf_density_threshold_code");
+  frozen.config.physics.sf_temperature_threshold_k = parseFloating(
+      requireString(entries, consumed, "physics.sf_temperature_threshold_k", "1.0e4"),
+      "physics.sf_temperature_threshold_k");
+  frozen.config.physics.sf_min_converging_flow_rate_code = parseFloating(
+      requireString(entries, consumed, "physics.sf_min_converging_flow_rate_code", "0.0"),
+      "physics.sf_min_converging_flow_rate_code");
+  frozen.config.physics.sf_epsilon_ff = parseFloating(
+      requireString(entries, consumed, "physics.sf_epsilon_ff", "0.01"),
+      "physics.sf_epsilon_ff");
+  frozen.config.physics.sf_min_star_particle_mass_code = parseFloating(
+      requireString(entries, consumed, "physics.sf_min_star_particle_mass_code", "0.1"),
+      "physics.sf_min_star_particle_mass_code");
+  frozen.config.physics.sf_stochastic_spawning = parseBool(
+      requireString(entries, consumed, "physics.sf_stochastic_spawning", "true"),
+      "physics.sf_stochastic_spawning");
+  frozen.config.physics.sf_random_seed = static_cast<std::uint64_t>(parseNumber<unsigned long long>(
+      requireString(entries, consumed, "physics.sf_random_seed", "123456789"),
+      "physics.sf_random_seed"));
 
   frozen.config.output.run_name =
       requireString(entries, consumed, "output.run_name", frozen.config.output.run_name);

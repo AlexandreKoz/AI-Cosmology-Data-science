@@ -38,6 +38,17 @@ enable_cooling = true
 enable_star_formation = true
 enable_feedback = true
 reionization_model = hm12
+uv_background_model = hm12
+self_shielding_model = none
+cooling_model = primordial
+temperature_floor_k = 100.0
+sf_density_threshold_code = 10.0
+sf_temperature_threshold_k = 10000.0
+sf_min_converging_flow_rate_code = 0.0
+sf_epsilon_ff = 0.01
+sf_min_star_particle_mass_code = 0.1
+sf_stochastic_spawning = true
+sf_random_seed = 123456789
 
 [output]
 run_name = zoom_in_reference

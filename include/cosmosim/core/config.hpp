@@ -46,6 +46,13 @@ struct PhysicsConfig {
   std::string cooling_model = "primordial";
   std::string metal_line_table_path;
   double temperature_floor_k = 100.0;
+  double sf_density_threshold_code = 10.0;
+  double sf_temperature_threshold_k = 1.0e4;
+  double sf_min_converging_flow_rate_code = 0.0;
+  double sf_epsilon_ff = 0.01;
+  double sf_min_star_particle_mass_code = 0.1;
+  bool sf_stochastic_spawning = true;
+  std::uint64_t sf_random_seed = 123456789ull;
 };
 
 struct OutputConfig {
