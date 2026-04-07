@@ -141,7 +141,9 @@ add_library(cosmosim_hydro STATIC
   src/hydro/hydro_reconstruction.cpp
   src/hydro/hydro_riemann.cpp)
 add_library(cosmosim_amr STATIC src/amr/amr_module.cpp)
-add_library(cosmosim_physics STATIC src/physics/physics_module.cpp)
+add_library(cosmosim_physics STATIC
+  src/physics/physics_module.cpp
+  src/physics/cooling_heating.cpp)
 add_library(cosmosim_io STATIC
   src/io/io_module.cpp
   src/io/ic_reader.cpp
@@ -253,6 +255,14 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_unit_hydro_riemann PRIVATE cosmosim_all)
   add_test(NAME unit_hydro_riemann COMMAND test_unit_hydro_riemann)
 
+
+  add_executable(test_unit_cooling_heating tests/unit/test_cooling_heating.cpp)
+  target_link_libraries(test_unit_cooling_heating PRIVATE cosmosim_all)
+  add_test(NAME unit_cooling_heating COMMAND test_unit_cooling_heating)
+
+  add_executable(test_integration_cooling_relaxation tests/integration/test_cooling_relaxation.cpp)
+  target_link_libraries(test_integration_cooling_relaxation PRIVATE cosmosim_all)
+  add_test(NAME integration_cooling_relaxation COMMAND test_integration_cooling_relaxation)
   add_executable(test_integration_simulation_state_pipeline tests/integration/test_simulation_state_pipeline.cpp)
   target_link_libraries(test_integration_simulation_state_pipeline PRIVATE cosmosim_all)
   add_test(NAME integration_simulation_state_pipeline COMMAND test_integration_simulation_state_pipeline)
@@ -418,6 +428,9 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
 
   add_executable(bench_hydro_face_sweep bench/bench_hydro_face_sweep.cpp)
   target_link_libraries(bench_hydro_face_sweep PRIVATE cosmosim_hydro)
+
+  add_executable(bench_cooling_heating_source bench/bench_cooling_heating_source.cpp)
+  target_link_libraries(bench_cooling_heating_source PRIVATE cosmosim_all)
 endif()
 
 cosmosim_generate_feature_summary(

@@ -42,3 +42,12 @@ Mode-policy validation rules:
 - `zoom_in` with `mode.zoom_high_res_region=true` still requires `mode.zoom_region_file`.
 
 For isolated gravity, the current boundary treatment is a monopole/Dirichlet-style reference potential ghost fill (`isolated_monopole`) documented in the mode policy and preserved in normalized snapshots for provenance.
+
+## Cooling/heating keys
+
+The `physics` section also supports cooling/heating normalization keys:
+- `cooling_model` (`primordial` or `primordial_plus_metal_table`)
+- `uv_background_model` (`hm12`, `fg20`, `none`)
+- `self_shielding_model` (`none`, `rahmati13_like`)
+- `metal_line_table_path` (optional table asset path)
+- `temperature_floor_k` (> 0)

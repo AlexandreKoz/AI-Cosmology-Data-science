@@ -129,6 +129,10 @@ struct HydroSourceContext {
   std::span<const double> gravity_accel_x_peculiar;
   std::span<const double> gravity_accel_y_peculiar;
   std::span<const double> gravity_accel_z_peculiar;
+  std::span<const double> hydrogen_number_density_cgs;
+  std::span<const double> metallicity_mass_fraction;
+  std::span<const double> temperature_k;
+  double redshift = 0.0;
 };
 
 class HydroSourceTerm {

@@ -269,6 +269,9 @@ void validateConfig(const SimulationConfig& config) {
   if (config.cosmology.omega_matter <= 0.0 || config.cosmology.omega_lambda < 0.0) {
     throw ConfigError("cosmology requires omega_matter > 0 and omega_lambda >= 0");
   }
+  if (config.physics.temperature_floor_k <= 0.0) {
+    throw ConfigError("physics.temperature_floor_k must be > 0");
+  }
   const ModePolicy policy = buildModePolicy(config.mode);
   validateModePolicy(config, policy);
 }
@@ -315,6 +318,11 @@ void validateConfig(const SimulationConfig& config) {
          << (frozen.config.physics.enable_star_formation ? "true" : "false") << '\n';
   stream << "enable_feedback = " << (frozen.config.physics.enable_feedback ? "true" : "false") << '\n';
   stream << "reionization_model = " << frozen.config.physics.reionization_model << '\n';
+  stream << "uv_background_model = " << frozen.config.physics.uv_background_model << '\n';
+  stream << "self_shielding_model = " << frozen.config.physics.self_shielding_model << '\n';
+  stream << "cooling_model = " << frozen.config.physics.cooling_model << '\n';
+  stream << "metal_line_table_path = " << frozen.config.physics.metal_line_table_path << '\n';
+  stream << "temperature_floor_k = " << frozen.config.physics.temperature_floor_k << '\n';
   stream << "\n[output]\n";
   stream << "run_name = " << frozen.config.output.run_name << '\n';
   stream << "output_directory = " << frozen.config.output.output_directory << '\n';
@@ -445,6 +453,17 @@ void validateConfig(const SimulationConfig& config) {
       requireString(entries, consumed, "physics.enable_feedback", "true"), "physics.enable_feedback");
   frozen.config.physics.reionization_model =
       requireString(entries, consumed, "physics.reionization_model", "hm12");
+  frozen.config.physics.uv_background_model =
+      requireString(entries, consumed, "physics.uv_background_model", "hm12");
+  frozen.config.physics.self_shielding_model =
+      requireString(entries, consumed, "physics.self_shielding_model", "none");
+  frozen.config.physics.cooling_model =
+      requireString(entries, consumed, "physics.cooling_model", "primordial");
+  frozen.config.physics.metal_line_table_path =
+      requireString(entries, consumed, "physics.metal_line_table_path", "");
+  frozen.config.physics.temperature_floor_k = parseFloating(
+      requireString(entries, consumed, "physics.temperature_floor_k", "100.0"),
+      "physics.temperature_floor_k");
 
   frozen.config.output.run_name =
       requireString(entries, consumed, "output.run_name", frozen.config.output.run_name);
