@@ -91,6 +91,14 @@ struct StarParticleSidecar {
   AlignedVector<double> formation_scale_factor;
   AlignedVector<double> birth_mass_code;
   AlignedVector<double> metallicity_mass_fraction;
+  // Explicit stellar evolution bookkeeping lanes for auditable enrichment.
+  AlignedVector<double> stellar_age_years_last;
+  AlignedVector<double> stellar_returned_mass_cumulative_code;
+  AlignedVector<double> stellar_returned_metals_cumulative_code;
+  AlignedVector<double> stellar_feedback_energy_cumulative_erg;
+  std::array<AlignedVector<double>, 3> stellar_returned_mass_channel_cumulative_code;
+  std::array<AlignedVector<double>, 3> stellar_returned_metals_channel_cumulative_code;
+  std::array<AlignedVector<double>, 3> stellar_feedback_energy_channel_cumulative_erg;
 
   void resize(std::size_t count);
   [[nodiscard]] std::size_t size() const noexcept;

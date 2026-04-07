@@ -160,6 +160,15 @@ void StarParticleSidecar::resize(std::size_t count) {
   formation_scale_factor.resize(count);
   birth_mass_code.resize(count);
   metallicity_mass_fraction.resize(count);
+  stellar_age_years_last.resize(count);
+  stellar_returned_mass_cumulative_code.resize(count);
+  stellar_returned_metals_cumulative_code.resize(count);
+  stellar_feedback_energy_cumulative_erg.resize(count);
+  for (std::size_t channel = 0; channel < stellar_returned_mass_channel_cumulative_code.size(); ++channel) {
+    stellar_returned_mass_channel_cumulative_code[channel].resize(count);
+    stellar_returned_metals_channel_cumulative_code[channel].resize(count);
+    stellar_feedback_energy_channel_cumulative_erg[channel].resize(count);
+  }
 }
 
 // Report star sidecar row count.
@@ -168,8 +177,22 @@ std::size_t StarParticleSidecar::size() const noexcept { return particle_index.s
 // Validate star metadata lane consistency.
 bool StarParticleSidecar::isConsistent() const noexcept {
   const std::size_t expected = particle_index.size();
-  return formation_scale_factor.size() == expected && birth_mass_code.size() == expected &&
-         metallicity_mass_fraction.size() == expected;
+  if (formation_scale_factor.size() != expected || birth_mass_code.size() != expected ||
+      metallicity_mass_fraction.size() != expected || stellar_age_years_last.size() != expected ||
+      stellar_returned_mass_cumulative_code.size() != expected ||
+      stellar_returned_metals_cumulative_code.size() != expected ||
+      stellar_feedback_energy_cumulative_erg.size() != expected) {
+    return false;
+  }
+
+  for (std::size_t channel = 0; channel < stellar_returned_mass_channel_cumulative_code.size(); ++channel) {
+    if (stellar_returned_mass_channel_cumulative_code[channel].size() != expected ||
+        stellar_returned_metals_channel_cumulative_code[channel].size() != expected ||
+        stellar_feedback_energy_channel_cumulative_erg[channel].size() != expected) {
+      return false;
+    }
+  }
+  return true;
 }
 
 // Resize black-hole metadata lanes indexed by BH-local rows.

@@ -40,6 +40,7 @@ struct PhysicsConfig {
   bool enable_cooling = true;
   bool enable_star_formation = true;
   bool enable_feedback = true;
+  bool enable_stellar_evolution = true;
   std::string reionization_model = "hm12";
   std::string uv_background_model = "hm12";
   std::string self_shielding_model = "none";
@@ -53,6 +54,8 @@ struct PhysicsConfig {
   double sf_min_star_particle_mass_code = 0.1;
   bool sf_stochastic_spawning = true;
   std::uint64_t sf_random_seed = 123456789ull;
+  std::string stellar_evolution_table_path;
+  double stellar_evolution_hubble_time_years = 1.44e10;
 };
 
 struct OutputConfig {
