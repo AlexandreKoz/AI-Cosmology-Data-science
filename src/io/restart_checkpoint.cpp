@@ -3,9 +3,11 @@
 #include <algorithm>
 #include <bit>
 #include <array>
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -17,7 +19,9 @@
 #include "cosmosim/core/build_config.hpp"
 
 #if COSMOSIM_ENABLE_HDF5
+#include <fcntl.h>
 #include <hdf5.h>
+#include <unistd.h>
 #endif
 
 namespace cosmosim::io {
@@ -258,10 +262,25 @@ void maybeFsync(const std::filesystem::path& file_path, bool enabled) {
   if (!enabled) {
     return;
   }
-  std::ofstream stream(file_path, std::ios::binary | std::ios::in);
-  if (!stream.good()) {
-    return;
+#if defined(_WIN32)
+  (void)file_path;
+  throw std::runtime_error("restart fsync finalize is not implemented on this platform");
+#else
+  const int fd = ::open(file_path.c_str(), O_RDONLY);
+  if (fd < 0) {
+    throw std::runtime_error(
+        "failed to open restart temporary file for fsync: " + file_path.string() + ": " + std::strerror(errno));
   }
+  if (::fsync(fd) != 0) {
+    const std::string message = std::strerror(errno);
+    ::close(fd);
+    throw std::runtime_error("failed to fsync restart temporary file: " + file_path.string() + ": " + message);
+  }
+  if (::close(fd) != 0) {
+    throw std::runtime_error(
+        "failed to close restart temporary file after fsync: " + file_path.string() + ": " + std::strerror(errno));
+  }
+#endif
 }
 
 void writeStateGroup(hid_t root, const core::SimulationState& state) {
@@ -482,6 +501,7 @@ std::uint64_t restartPayloadIntegrityHash(const RestartWritePayload& payload) {
 
   append_string(payload.normalized_config_text);
   append_string(payload.normalized_config_hash_hex);
+  append_string(core::serializeProvenanceRecord(payload.provenance));
   append_string(payload.state->metadata.serialize());
 
   const auto append_any_vec = [&hash](const auto& values) { hash = fnv1aAppend(hash, asBytesSpan(values)); };
@@ -498,6 +518,8 @@ std::uint64_t restartPayloadIntegrityHash(const RestartWritePayload& payload) {
   append_any_vec(state.particle_sidecar.particle_id);
   append_any_vec(state.particle_sidecar.sfc_key);
   append_any_vec(state.particle_sidecar.species_tag);
+  append_any_vec(state.particle_sidecar.particle_flags);
+  append_any_vec(state.particle_sidecar.owning_rank);
 
   append_any_vec(state.cells.center_x_comoving);
   append_any_vec(state.cells.center_y_comoving);
@@ -511,11 +533,26 @@ std::uint64_t restartPayloadIntegrityHash(const RestartWritePayload& payload) {
   append_any_vec(state.gas_cells.internal_energy_code);
   append_any_vec(state.gas_cells.temperature_code);
   append_any_vec(state.gas_cells.sound_speed_code);
+  append_any_vec(state.gas_cells.recon_gradient_x);
+  append_any_vec(state.gas_cells.recon_gradient_y);
+  append_any_vec(state.gas_cells.recon_gradient_z);
 
   append_any_vec(state.patches.patch_id);
   append_any_vec(state.patches.level);
   append_any_vec(state.patches.first_cell);
   append_any_vec(state.patches.cell_count);
+  append_any_vec(state.star_particles.particle_index);
+  append_any_vec(state.star_particles.formation_scale_factor);
+  append_any_vec(state.star_particles.birth_mass_code);
+  append_any_vec(state.star_particles.metallicity_mass_fraction);
+  append_any_vec(state.black_holes.particle_index);
+  append_any_vec(state.black_holes.subgrid_mass_code);
+  append_any_vec(state.black_holes.accretion_rate_code);
+  append_any_vec(state.black_holes.feedback_energy_code);
+  append_any_vec(state.tracers.particle_index);
+  append_any_vec(state.tracers.parent_particle_id);
+  append_any_vec(state.tracers.injection_step);
+  append_any_vec(state.species.count_by_species);
 
   const auto ordered_sidecars = state.sidecars.blocksSortedByName();
   for (const core::ModuleSidecarBlock* block : ordered_sidecars) {
@@ -528,9 +565,14 @@ std::uint64_t restartPayloadIntegrityHash(const RestartWritePayload& payload) {
   append_u64(std::bit_cast<std::uint64_t>(payload.integrator_state->current_time_code));
   append_u64(std::bit_cast<std::uint64_t>(payload.integrator_state->current_scale_factor));
   append_u64(std::bit_cast<std::uint64_t>(payload.integrator_state->dt_time_code));
+  append_u64(static_cast<std::uint64_t>(payload.integrator_state->scheme));
+  append_u64(payload.integrator_state->time_bins.hierarchical_enabled ? 1ull : 0ull);
+  append_u64(static_cast<std::uint64_t>(payload.integrator_state->time_bins.active_bin));
+  append_u64(static_cast<std::uint64_t>(payload.integrator_state->time_bins.max_bin));
 
   const core::TimeBinPersistentState scheduler_state = payload.scheduler->exportPersistentState();
   append_u64(scheduler_state.current_tick);
+  append_u64(static_cast<std::uint64_t>(scheduler_state.max_bin));
   append_any_vec(scheduler_state.bin_index);
   append_any_vec(scheduler_state.next_activation_tick);
   append_any_vec(scheduler_state.active_flag);
@@ -615,9 +657,13 @@ void writeRestartCheckpointHdf5(
 
   maybeFsync(temporary_path, policy.enable_fsync_finalize);
 
-  std::error_code remove_error;
-  std::filesystem::remove(output_path, remove_error);
-  std::filesystem::rename(temporary_path, output_path);
+  std::error_code rename_error;
+  std::filesystem::rename(temporary_path, output_path, rename_error);
+  if (rename_error) {
+    throw std::runtime_error(
+        "failed to atomically finalize restart checkpoint from '" + temporary_path.string() + "' to '" +
+        output_path.string() + "': " + rename_error.message());
+  }
 #endif
 }
 
@@ -643,7 +689,7 @@ RestartReadResult readRestartCheckpointHdf5(const std::filesystem::path& input_p
   result.payload_hash = readScalarU64Attribute(file.get(), "payload_integrity_hash");
 
   result.normalized_config_text = readStringDataset(file.get(), "normalized_config_text");
-result.provenance = core::deserializeProvenanceRecord(readStringDataset(file.get(), "provenance_record"));
+  result.provenance = core::deserializeProvenanceRecord(readStringDataset(file.get(), "provenance_record"));
 
   readStateGroup(file.get(), result.state);
 

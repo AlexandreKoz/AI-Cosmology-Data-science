@@ -2,11 +2,16 @@
 #include <cmath>
 #include <filesystem>
 #include <stdexcept>
+#include <vector>
 
 #include "cosmosim/core/build_config.hpp"
 #include "cosmosim/core/provenance.hpp"
 #include "cosmosim/core/time_integration.hpp"
 #include "cosmosim/io/restart_checkpoint.hpp"
+
+#if COSMOSIM_ENABLE_HDF5
+#include <hdf5.h>
+#endif
 
 namespace {
 
@@ -126,16 +131,69 @@ void testRestartRoundtrip() {
 
   assert(restored.state.validateOwnershipInvariants());
   assert(restored.state.metadata.run_name == state.metadata.run_name);
+  assert(restored.state.metadata.schema_version == state.metadata.schema_version);
+  assert(restored.state.metadata.step_index == state.metadata.step_index);
+  assert(std::abs(restored.state.metadata.scale_factor - state.metadata.scale_factor) < 1.0e-15);
+  assert(restored.state.metadata.normalized_config_hash_hex == state.metadata.normalized_config_hash_hex);
+  assert(restored.state.particle_sidecar.particle_id == state.particle_sidecar.particle_id);
+  assert(restored.state.particle_sidecar.sfc_key == state.particle_sidecar.sfc_key);
+  assert(restored.state.particle_sidecar.species_tag == state.particle_sidecar.species_tag);
+  assert(restored.state.particle_sidecar.particle_flags == state.particle_sidecar.particle_flags);
+  assert(restored.state.particle_sidecar.owning_rank == state.particle_sidecar.owning_rank);
+  assert(restored.state.star_particles.particle_index == state.star_particles.particle_index);
+  assert(restored.state.star_particles.formation_scale_factor == state.star_particles.formation_scale_factor);
+  assert(restored.state.black_holes.particle_index == state.black_holes.particle_index);
+  assert(restored.state.black_holes.subgrid_mass_code == state.black_holes.subgrid_mass_code);
+  assert(restored.state.black_holes.accretion_rate_code == state.black_holes.accretion_rate_code);
+  assert(restored.state.black_holes.feedback_energy_code == state.black_holes.feedback_energy_code);
+  assert(restored.state.species.count_by_species == state.species.count_by_species);
   assert(restored.integrator_state.step_index == integrator_state.step_index);
   assert(std::abs(restored.integrator_state.current_time_code - integrator_state.current_time_code) < 1.0e-15);
+  assert(restored.integrator_state.scheme == integrator_state.scheme);
+  assert(restored.integrator_state.time_bins.hierarchical_enabled == integrator_state.time_bins.hierarchical_enabled);
+  assert(restored.integrator_state.time_bins.active_bin == integrator_state.time_bins.active_bin);
+  assert(restored.integrator_state.time_bins.max_bin == integrator_state.time_bins.max_bin);
+  assert(restored.scheduler_state.max_bin == scheduler.maxBin());
   assert(restored.scheduler_state.current_tick == scheduler.currentTick());
   assert(restored.scheduler_state.bin_index.size() == scheduler.elementCount());
+  const auto original_scheduler_state = scheduler.exportPersistentState();
+  assert(restored.scheduler_state.bin_index == original_scheduler_state.bin_index);
+  assert(restored.scheduler_state.next_activation_tick == original_scheduler_state.next_activation_tick);
+  assert(restored.scheduler_state.active_flag == original_scheduler_state.active_flag);
+  assert(restored.scheduler_state.pending_bin_index == original_scheduler_state.pending_bin_index);
   assert(restored.normalized_config_hash_hex == payload.normalized_config_hash_hex);
+  assert(restored.normalized_config_text == payload.normalized_config_text);
+  assert(restored.provenance.config_hash_hex == payload.provenance.config_hash_hex);
   assert(restored.state.sidecars.find("hydro") != nullptr);
+  const cosmosim::core::ModuleSidecarBlock* hydro_sidecar = restored.state.sidecars.find("hydro");
+  assert(hydro_sidecar->schema_version == 3);
+  assert(hydro_sidecar->payload.size() == 3);
+  assert(hydro_sidecar->payload[0] == std::byte{0x01});
+  assert(hydro_sidecar->payload[1] == std::byte{0x02});
+  assert(hydro_sidecar->payload[2] == std::byte{0x03});
+  assert(restored.payload_hash == cosmosim::io::restartPayloadIntegrityHash(payload));
+  assert(restored.payload_hash_hex == cosmosim::io::restartPayloadIntegrityHashHex(payload));
 
   cosmosim::core::HierarchicalTimeBinScheduler resumed_scheduler(restored.scheduler_state.max_bin);
   resumed_scheduler.importPersistentState(restored.scheduler_state);
   assert(resumed_scheduler.currentTick() == scheduler.currentTick());
+
+  hid_t tamper_file = H5Fopen(checkpoint_path.string().c_str(), H5F_ACC_RDWR, H5P_DEFAULT);
+  assert(tamper_file >= 0);
+  hid_t tamper_attr = H5Aopen(tamper_file, "payload_integrity_hash", H5P_DEFAULT);
+  assert(tamper_attr >= 0);
+  std::uint64_t bad_hash = 0;
+  assert(H5Awrite(tamper_attr, H5T_NATIVE_UINT64, &bad_hash) >= 0);
+  H5Aclose(tamper_attr);
+  H5Fclose(tamper_file);
+
+  bool integrity_threw = false;
+  try {
+    (void)cosmosim::io::readRestartCheckpointHdf5(checkpoint_path);
+  } catch (const std::runtime_error&) {
+    integrity_threw = true;
+  }
+  assert(integrity_threw);
 
   std::filesystem::remove(checkpoint_path);
 #else
