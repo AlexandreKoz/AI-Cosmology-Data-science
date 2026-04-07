@@ -33,15 +33,15 @@ Result: no matches.
 
 Therefore current factual status is:
 
-- P11: Open (unmapped in-tree; needs authoritative mapping source)
-- P12: Open (unmapped in-tree; needs authoritative mapping source)
-- P13: Open (unmapped in-tree; needs authoritative mapping source)
-- P14: Open (unmapped in-tree; needs authoritative mapping source)
-- P15: Open (unmapped in-tree; needs authoritative mapping source)
-- P16: Open (unmapped in-tree; needs authoritative mapping source)
-- P17: Open (unmapped in-tree; needs authoritative mapping source)
-- P18: Open (unmapped in-tree; needs authoritative mapping source)
-- P19: Open (unmapped in-tree; needs authoritative mapping source)
+- P11: unmapped in-tree (unmapped in-tree; needs authoritative mapping source)
+- P12: unmapped in-tree ( needs authoritative mapping source)
+- P13: unmapped in-tree (unmapped in-tree; needs authoritative mapping source)
+- P14: unmapped in-tree (unmapped in-tree; needs authoritative mapping source)
+- P15: unmapped in-tree (unmapped in-tree; needs authoritative mapping source)
+- P16: unmapped in-tree (unmapped in-tree; needs authoritative mapping source)
+- P17: unmapped in-tree (unmapped in-tree; needs authoritative mapping source)
+- P18: unmapped in-tree (unmapped in-tree; needs authoritative mapping source)
+- P19: unmapped in-tree (unmapped in-tree; needs authoritative mapping source)
 
 ## Non-blocking but relevant baseline evidence
 
