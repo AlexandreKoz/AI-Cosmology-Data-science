@@ -143,8 +143,7 @@ add_library(cosmosim_hydro STATIC
 add_library(cosmosim_amr STATIC src/amr/amr_module.cpp)
 add_library(cosmosim_physics STATIC
   src/physics/physics_module.cpp
-  src/physics/cooling_heating.cpp
-  src/physics/star_formation.cpp)
+  src/physics/cooling_heating.cpp)
 add_library(cosmosim_io STATIC
   src/io/io_module.cpp
   src/io/ic_reader.cpp
@@ -261,17 +260,9 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_unit_cooling_heating PRIVATE cosmosim_all)
   add_test(NAME unit_cooling_heating COMMAND test_unit_cooling_heating)
 
-  add_executable(test_unit_star_formation tests/unit/test_star_formation.cpp)
-  target_link_libraries(test_unit_star_formation PRIVATE cosmosim_all)
-  add_test(NAME unit_star_formation COMMAND test_unit_star_formation)
-
   add_executable(test_integration_cooling_relaxation tests/integration/test_cooling_relaxation.cpp)
   target_link_libraries(test_integration_cooling_relaxation PRIVATE cosmosim_all)
   add_test(NAME integration_cooling_relaxation COMMAND test_integration_cooling_relaxation)
-
-  add_executable(test_integration_star_formation_box tests/integration/test_star_formation_box.cpp)
-  target_link_libraries(test_integration_star_formation_box PRIVATE cosmosim_all)
-  add_test(NAME integration_star_formation_box COMMAND test_integration_star_formation_box)
   add_executable(test_integration_simulation_state_pipeline tests/integration/test_simulation_state_pipeline.cpp)
   target_link_libraries(test_integration_simulation_state_pipeline PRIVATE cosmosim_all)
   add_test(NAME integration_simulation_state_pipeline COMMAND test_integration_simulation_state_pipeline)
@@ -440,9 +431,6 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
 
   add_executable(bench_cooling_heating_source bench/bench_cooling_heating_source.cpp)
   target_link_libraries(bench_cooling_heating_source PRIVATE cosmosim_all)
-
-  add_executable(bench_star_formation_spawn_loop bench/bench_star_formation_spawn_loop.cpp)
-  target_link_libraries(bench_star_formation_spawn_loop PRIVATE cosmosim_all)
 endif()
 
 cosmosim_generate_feature_summary(
