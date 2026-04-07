@@ -1,6 +1,0 @@
-# age_yr,cumulative_return_fraction,cumulative_metals_fraction,cumulative_alpha_fraction,cumulative_iron_fraction,cumulative_energy_erg_per_msun
-1.0e6,0.000,0.0000,0.00000,0.00000,0.0
-1.0e7,0.080,0.0080,0.00400,0.00100,8.0e48
-1.0e8,0.180,0.0185,0.00900,0.00240,1.8e49
-1.0e9,0.300,0.0310,0.01500,0.00420,2.7e49
-1.0e10,0.420,0.0440,0.02000,0.00620,3.4e49
