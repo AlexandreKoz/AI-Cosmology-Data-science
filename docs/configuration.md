@@ -51,3 +51,17 @@ The `physics` section also supports cooling/heating normalization keys:
 - `self_shielding_model` (`none`, `rahmati13_like`)
 - `metal_line_table_path` (optional table asset path)
 - `temperature_floor_k` (> 0)
+
+## Stellar feedback keys
+
+Feedback policy is explicit and auditable through typed keys in the `physics` section:
+- `fb_mode`: `thermal`, `kinetic`, `momentum`, or `thermal_kinetic_momentum`
+- `fb_variant`: `none`, `delayed_cooling`, or `stochastic`
+- `fb_use_returned_mass_budget`: if true, use returned-mass budget; if false, use birth-mass proxy budget
+- `fb_epsilon_thermal`, `fb_epsilon_kinetic`, `fb_epsilon_momentum` (all >= 0)
+- `fb_sn_energy_erg_per_mass_code` (> 0)
+- `fb_momentum_code_per_mass_code` (>= 0)
+- `fb_neighbor_count` (> 0)
+- `fb_delayed_cooling_time_code` (non-negative policy field, recorded in normalized config)
+- `fb_stochastic_event_probability` in `(0, 1]`
+- `fb_random_seed` (deterministic stochastic-variant seed)

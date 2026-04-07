@@ -280,6 +280,32 @@ void validateConfig(const SimulationConfig& config) {
   if (config.physics.sf_epsilon_ff < 0.0 || config.physics.sf_epsilon_ff > 1.0) {
     throw ConfigError("physics.sf_epsilon_ff must be in [0, 1]");
   }
+  if (config.physics.fb_epsilon_thermal < 0.0 || config.physics.fb_epsilon_kinetic < 0.0 ||
+      config.physics.fb_epsilon_momentum < 0.0) {
+    throw ConfigError("physics feedback efficiencies must be >= 0");
+  }
+  if (config.physics.fb_sn_energy_erg_per_mass_code <= 0.0 ||
+      config.physics.fb_momentum_code_per_mass_code < 0.0) {
+    throw ConfigError("physics feedback budget scales must be physically non-negative");
+  }
+  if (config.physics.fb_neighbor_count == 0) {
+    throw ConfigError("physics.fb_neighbor_count must be > 0");
+  }
+  if (config.physics.fb_stochastic_event_probability <= 0.0 ||
+      config.physics.fb_stochastic_event_probability > 1.0) {
+    throw ConfigError("physics.fb_stochastic_event_probability must be in (0, 1]");
+  }
+  const std::string feedback_mode = toLower(config.physics.fb_mode);
+  if (feedback_mode != "thermal" && feedback_mode != "kinetic" && feedback_mode != "momentum" &&
+      feedback_mode != "thermal_kinetic_momentum") {
+    throw ConfigError(
+        "physics.fb_mode must be one of: thermal, kinetic, momentum, thermal_kinetic_momentum");
+  }
+  const std::string feedback_variant = toLower(config.physics.fb_variant);
+  if (feedback_variant != "none" && feedback_variant != "delayed_cooling" &&
+      feedback_variant != "stochastic") {
+    throw ConfigError("physics.fb_variant must be one of: none, delayed_cooling, stochastic");
+  }
   if (config.physics.stellar_evolution_hubble_time_years <= 0.0) {
     throw ConfigError("physics.stellar_evolution_hubble_time_years must be > 0");
   }
@@ -346,6 +372,19 @@ void validateConfig(const SimulationConfig& config) {
   stream << "sf_stochastic_spawning = "
          << (frozen.config.physics.sf_stochastic_spawning ? "true" : "false") << '\n';
   stream << "sf_random_seed = " << frozen.config.physics.sf_random_seed << '\n';
+  stream << "fb_mode = " << frozen.config.physics.fb_mode << '\n';
+  stream << "fb_variant = " << frozen.config.physics.fb_variant << '\n';
+  stream << "fb_use_returned_mass_budget = "
+         << (frozen.config.physics.fb_use_returned_mass_budget ? "true" : "false") << '\n';
+  stream << "fb_epsilon_thermal = " << frozen.config.physics.fb_epsilon_thermal << '\n';
+  stream << "fb_epsilon_kinetic = " << frozen.config.physics.fb_epsilon_kinetic << '\n';
+  stream << "fb_epsilon_momentum = " << frozen.config.physics.fb_epsilon_momentum << '\n';
+  stream << "fb_sn_energy_erg_per_mass_code = " << frozen.config.physics.fb_sn_energy_erg_per_mass_code << '\n';
+  stream << "fb_momentum_code_per_mass_code = " << frozen.config.physics.fb_momentum_code_per_mass_code << '\n';
+  stream << "fb_neighbor_count = " << frozen.config.physics.fb_neighbor_count << '\n';
+  stream << "fb_delayed_cooling_time_code = " << frozen.config.physics.fb_delayed_cooling_time_code << '\n';
+  stream << "fb_stochastic_event_probability = " << frozen.config.physics.fb_stochastic_event_probability << '\n';
+  stream << "fb_random_seed = " << frozen.config.physics.fb_random_seed << '\n';
   stream << "stellar_evolution_table_path = " << frozen.config.physics.stellar_evolution_table_path << '\n';
   stream << "stellar_evolution_hubble_time_years = "
          << frozen.config.physics.stellar_evolution_hubble_time_years << '\n';
@@ -514,6 +553,40 @@ void validateConfig(const SimulationConfig& config) {
   frozen.config.physics.sf_random_seed = static_cast<std::uint64_t>(parseNumber<unsigned long long>(
       requireString(entries, consumed, "physics.sf_random_seed", "123456789"),
       "physics.sf_random_seed"));
+  frozen.config.physics.fb_mode =
+      toLower(requireString(entries, consumed, "physics.fb_mode", "thermal_kinetic_momentum"));
+  frozen.config.physics.fb_variant =
+      toLower(requireString(entries, consumed, "physics.fb_variant", "none"));
+  frozen.config.physics.fb_use_returned_mass_budget = parseBool(
+      requireString(entries, consumed, "physics.fb_use_returned_mass_budget", "true"),
+      "physics.fb_use_returned_mass_budget");
+  frozen.config.physics.fb_epsilon_thermal = parseFloating(
+      requireString(entries, consumed, "physics.fb_epsilon_thermal", "0.6"),
+      "physics.fb_epsilon_thermal");
+  frozen.config.physics.fb_epsilon_kinetic = parseFloating(
+      requireString(entries, consumed, "physics.fb_epsilon_kinetic", "0.3"),
+      "physics.fb_epsilon_kinetic");
+  frozen.config.physics.fb_epsilon_momentum = parseFloating(
+      requireString(entries, consumed, "physics.fb_epsilon_momentum", "0.1"),
+      "physics.fb_epsilon_momentum");
+  frozen.config.physics.fb_sn_energy_erg_per_mass_code = parseFloating(
+      requireString(entries, consumed, "physics.fb_sn_energy_erg_per_mass_code", "1.0e49"),
+      "physics.fb_sn_energy_erg_per_mass_code");
+  frozen.config.physics.fb_momentum_code_per_mass_code = parseFloating(
+      requireString(entries, consumed, "physics.fb_momentum_code_per_mass_code", "3.0e3"),
+      "physics.fb_momentum_code_per_mass_code");
+  frozen.config.physics.fb_neighbor_count = static_cast<std::uint32_t>(parseNumber<unsigned>(
+      requireString(entries, consumed, "physics.fb_neighbor_count", "8"),
+      "physics.fb_neighbor_count"));
+  frozen.config.physics.fb_delayed_cooling_time_code = parseFloating(
+      requireString(entries, consumed, "physics.fb_delayed_cooling_time_code", "0.0"),
+      "physics.fb_delayed_cooling_time_code");
+  frozen.config.physics.fb_stochastic_event_probability = parseFloating(
+      requireString(entries, consumed, "physics.fb_stochastic_event_probability", "0.25"),
+      "physics.fb_stochastic_event_probability");
+  frozen.config.physics.fb_random_seed = static_cast<std::uint64_t>(parseNumber<unsigned long long>(
+      requireString(entries, consumed, "physics.fb_random_seed", "42424242"),
+      "physics.fb_random_seed"));
   frozen.config.physics.stellar_evolution_table_path =
       requireString(entries, consumed, "physics.stellar_evolution_table_path", "");
   frozen.config.physics.stellar_evolution_hubble_time_years = parseFloating(
