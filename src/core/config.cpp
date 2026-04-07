@@ -272,6 +272,29 @@ void validateConfig(const SimulationConfig& config) {
   if (config.physics.temperature_floor_k <= 0.0) {
     throw ConfigError("physics.temperature_floor_k must be > 0");
   }
+  if (config.physics.star_formation_efficiency_ff <= 0.0 ||
+      config.physics.star_formation_efficiency_ff > 1.0) {
+    throw ConfigError("physics.star_formation_efficiency_ff must be in (0, 1]");
+  }
+  if (config.physics.star_formation_density_threshold_code <= 0.0) {
+    throw ConfigError("physics.star_formation_density_threshold_code must be > 0");
+  }
+  if (config.physics.star_formation_temperature_threshold_k <= 0.0) {
+    throw ConfigError("physics.star_formation_temperature_threshold_k must be > 0");
+  }
+  if (config.physics.star_formation_virial_parameter_max <= 0.0) {
+    throw ConfigError("physics.star_formation_virial_parameter_max must be > 0");
+  }
+  if (config.physics.star_min_particle_mass_code <= 0.0) {
+    throw ConfigError("physics.star_min_particle_mass_code must be > 0");
+  }
+  if (config.physics.star_formation_model != "schmidt_kennicutt") {
+    throw ConfigError("physics.star_formation_model currently supports only schmidt_kennicutt");
+  }
+  if (config.physics.star_spawning_mode != "stochastic" &&
+      config.physics.star_spawning_mode != "deterministic") {
+    throw ConfigError("physics.star_spawning_mode must be stochastic or deterministic");
+  }
   const ModePolicy policy = buildModePolicy(config.mode);
   validateModePolicy(config, policy);
 }
@@ -323,6 +346,17 @@ void validateConfig(const SimulationConfig& config) {
   stream << "cooling_model = " << frozen.config.physics.cooling_model << '\n';
   stream << "metal_line_table_path = " << frozen.config.physics.metal_line_table_path << '\n';
   stream << "temperature_floor_k = " << frozen.config.physics.temperature_floor_k << '\n';
+  stream << "star_formation_model = " << frozen.config.physics.star_formation_model << '\n';
+  stream << "star_spawning_mode = " << frozen.config.physics.star_spawning_mode << '\n';
+  stream << "star_formation_efficiency_ff = " << frozen.config.physics.star_formation_efficiency_ff << '\n';
+  stream << "star_formation_density_threshold_code = "
+         << frozen.config.physics.star_formation_density_threshold_code << '\n';
+  stream << "star_formation_temperature_threshold_k = "
+         << frozen.config.physics.star_formation_temperature_threshold_k << '\n';
+  stream << "star_formation_virial_parameter_max = "
+         << frozen.config.physics.star_formation_virial_parameter_max << '\n';
+  stream << "star_min_particle_mass_code = " << frozen.config.physics.star_min_particle_mass_code << '\n';
+  stream << "star_rng_seed_base = " << frozen.config.physics.star_rng_seed_base << '\n';
   stream << "\n[output]\n";
   stream << "run_name = " << frozen.config.output.run_name << '\n';
   stream << "output_directory = " << frozen.config.output.output_directory << '\n';
@@ -464,6 +498,28 @@ void validateConfig(const SimulationConfig& config) {
   frozen.config.physics.temperature_floor_k = parseFloating(
       requireString(entries, consumed, "physics.temperature_floor_k", "100.0"),
       "physics.temperature_floor_k");
+  frozen.config.physics.star_formation_model = toLower(
+      requireString(entries, consumed, "physics.star_formation_model", "schmidt_kennicutt"));
+  frozen.config.physics.star_spawning_mode = toLower(
+      requireString(entries, consumed, "physics.star_spawning_mode", "stochastic"));
+  frozen.config.physics.star_formation_efficiency_ff = parseFloating(
+      requireString(entries, consumed, "physics.star_formation_efficiency_ff", "0.01"),
+      "physics.star_formation_efficiency_ff");
+  frozen.config.physics.star_formation_density_threshold_code = parseFloating(
+      requireString(entries, consumed, "physics.star_formation_density_threshold_code", "10.0"),
+      "physics.star_formation_density_threshold_code");
+  frozen.config.physics.star_formation_temperature_threshold_k = parseFloating(
+      requireString(entries, consumed, "physics.star_formation_temperature_threshold_k", "20000.0"),
+      "physics.star_formation_temperature_threshold_k");
+  frozen.config.physics.star_formation_virial_parameter_max = parseFloating(
+      requireString(entries, consumed, "physics.star_formation_virial_parameter_max", "1.0"),
+      "physics.star_formation_virial_parameter_max");
+  frozen.config.physics.star_min_particle_mass_code = parseFloating(
+      requireString(entries, consumed, "physics.star_min_particle_mass_code", "0.1"),
+      "physics.star_min_particle_mass_code");
+  frozen.config.physics.star_rng_seed_base = static_cast<std::uint64_t>(parseNumber<unsigned long long>(
+      requireString(entries, consumed, "physics.star_rng_seed_base", "1"),
+      "physics.star_rng_seed_base"));
 
   frozen.config.output.run_name =
       requireString(entries, consumed, "output.run_name", frozen.config.output.run_name);
