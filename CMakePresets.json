@@ -35,6 +35,28 @@
       }
     },
     {
+      "name": "hdf5-debug",
+      "inherits": [
+        "cpu-only-debug"
+      ],
+      "displayName": "HDF5 Debug",
+      "description": "Developer workflow for snapshot/restart schema and provenance work.",
+      "cacheVariables": {
+        "COSMOSIM_ENABLE_HDF5": "ON"
+      }
+    },
+    {
+      "name": "pm-hdf5-fftw-debug",
+      "inherits": [
+        "hdf5-debug"
+      ],
+      "displayName": "PM + HDF5 + FFTW Debug",
+      "description": "PM/TreePM validation workflow with HDF5 I/O and FFTW enabled.",
+      "cacheVariables": {
+        "COSMOSIM_ENABLE_FFTW": "ON"
+      }
+    },
+    {
       "name": "python-debug",
       "inherits": [
         "cpu-only-debug"
@@ -97,6 +119,14 @@
       "configurePreset": "cpu-only-release"
     },
     {
+      "name": "build-hdf5-debug",
+      "configurePreset": "hdf5-debug"
+    },
+    {
+      "name": "build-pm-hdf5-fftw-debug",
+      "configurePreset": "pm-hdf5-fftw-debug"
+    },
+    {
       "name": "build-mpi-release",
       "configurePreset": "mpi-release"
     },
@@ -113,6 +143,20 @@
     {
       "name": "test-cpu-debug",
       "configurePreset": "cpu-only-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "test-hdf5-debug",
+      "configurePreset": "hdf5-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "test-pm-hdf5-fftw-debug",
+      "configurePreset": "pm-hdf5-fftw-debug",
       "output": {
         "outputOnFailure": true
       }

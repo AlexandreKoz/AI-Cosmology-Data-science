@@ -58,12 +58,24 @@ if(COSMOSIM_ENABLE_MPI)
 endif()
 
 if(COSMOSIM_ENABLE_HDF5)
-  find_package(HDF5 REQUIRED COMPONENTS C CXX)
+  find_package(HDF5 QUIET COMPONENTS C CXX)
+  if(NOT HDF5_FOUND)
+    message(FATAL_ERROR
+      "COSMOSIM_ENABLE_HDF5=ON but HDF5 was not found.\n"
+      "Install libhdf5 development packages and reconfigure with preset 'hdf5-debug' "
+      "or provide -DHDF5_ROOT=/path/to/hdf5.")
+  endif()
 endif()
 
 if(COSMOSIM_ENABLE_FFTW)
   find_package(PkgConfig REQUIRED)
-  pkg_check_modules(FFTW REQUIRED IMPORTED_TARGET fftw3)
+  pkg_check_modules(FFTW QUIET IMPORTED_TARGET fftw3)
+  if(NOT FFTW_FOUND)
+    message(FATAL_ERROR
+      "COSMOSIM_ENABLE_FFTW=ON but fftw3 was not found via pkg-config.\n"
+      "Install FFTW development packages and ensure pkg-config can see fftw3.pc "
+      "(e.g., set PKG_CONFIG_PATH), then use preset 'pm-hdf5-fftw-debug'.")
+  endif()
 endif()
 
 if(COSMOSIM_ENABLE_CUDA)
