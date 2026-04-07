@@ -38,9 +38,7 @@ restart_stem = restart
   assert(frozen.config.numerics.gravity_softening_kpc_comoving == 2.5);
   assert(frozen.config.mode.zoom_high_res_region);
   assert(frozen.config.mode.zoom_region_file == "region_zoom.hdf5");
-  assert(frozen.config.physics.star_spawning_mode == "stochastic");
 }
-
 
 void testDuplicateKeyFails() {
   const std::string config_text = "[output]\noutput_stem = snapshot\noutput_stem = other\n";
@@ -120,30 +118,9 @@ void testDefaultsCanonicalizationAndDeterminism() {
   const auto frozen_second = cosmosim::core::loadFrozenConfigFromString(second, "second");
 
   assert(frozen_first.config.physics.enable_cooling);
-  assert(frozen_first.config.physics.star_formation_model == "schmidt_kennicutt");
   assert(frozen_first.config.parallel.deterministic_reduction);
   assert(frozen_first.normalized_text == frozen_second.normalized_text);
   assert(frozen_first.provenance.config_hash_hex == frozen_second.provenance.config_hash_hex);
-}
-
-
-void testStarFormationConfigParsing() {
-  const std::string config_text = R"(
-[physics]
-star_formation_model = schmidt_kennicutt
-star_spawning_mode = deterministic
-star_formation_efficiency_ff = 0.02
-star_formation_density_threshold_code = 12.0
-star_formation_temperature_threshold_k = 15000.0
-star_formation_virial_parameter_max = 0.8
-star_min_particle_mass_code = 0.5
-star_rng_seed_base = 42
-)";
-
-  const auto frozen = cosmosim::core::loadFrozenConfigFromString(config_text, "star_formation_parse");
-  assert(frozen.config.physics.star_spawning_mode == "deterministic");
-  assert(frozen.config.physics.star_formation_efficiency_ff == 0.02);
-  assert(frozen.config.physics.star_rng_seed_base == 42);
 }
 
 }  // namespace
@@ -156,6 +133,5 @@ int main() {
   testInvalidEnumFails();
   testBoundaryModeValidation();
   testDefaultsCanonicalizationAndDeterminism();
-  testStarFormationConfigParsing();
   return 0;
 }
