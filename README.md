@@ -32,6 +32,8 @@ cmake --build --preset build-cpu-debug
 ctest --preset test-cpu-debug
 ```
 
+For dependency-enabled workflows and troubleshooting, see `docs/build_instructions.md`.
+
 Manual workflow is still supported:
 
 ```bash
@@ -66,6 +68,8 @@ Canonical configure presets:
 
 - `cpu-only-debug`
 - `cpu-only-release`
+- `hdf5-debug` (HDF5 I/O and schema/provenance work)
+- `pm-hdf5-fftw-debug` (PM/TreePM validation path with FFTW + HDF5)
 - `asan-debug`
 - `mpi-release`
 - `cuda-release`
