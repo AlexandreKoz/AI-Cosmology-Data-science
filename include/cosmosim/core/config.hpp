@@ -54,6 +54,18 @@ struct PhysicsConfig {
   double sf_min_star_particle_mass_code = 0.1;
   bool sf_stochastic_spawning = true;
   std::uint64_t sf_random_seed = 123456789ull;
+  std::string fb_mode = "thermal_kinetic_momentum";
+  std::string fb_variant = "none";
+  bool fb_use_returned_mass_budget = true;
+  double fb_epsilon_thermal = 0.6;
+  double fb_epsilon_kinetic = 0.3;
+  double fb_epsilon_momentum = 0.1;
+  double fb_sn_energy_erg_per_mass_code = 1.0e49;
+  double fb_momentum_code_per_mass_code = 3.0e3;
+  std::uint32_t fb_neighbor_count = 8;
+  double fb_delayed_cooling_time_code = 0.0;
+  double fb_stochastic_event_probability = 0.25;
+  std::uint64_t fb_random_seed = 42424242ull;
   std::string stellar_evolution_table_path;
   double stellar_evolution_hubble_time_years = 1.44e10;
 };

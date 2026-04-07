@@ -145,7 +145,8 @@ add_library(cosmosim_physics STATIC
   src/physics/physics_module.cpp
   src/physics/cooling_heating.cpp
   src/physics/star_formation.cpp
-  src/physics/stellar_evolution.cpp)
+  src/physics/stellar_evolution.cpp
+  src/physics/stellar_feedback.cpp)
 add_library(cosmosim_io STATIC
   src/io/io_module.cpp
   src/io/ic_reader.cpp
@@ -270,6 +271,9 @@ if(COSMOSIM_ENABLE_TESTS)
   add_executable(test_unit_stellar_evolution tests/unit/test_stellar_evolution.cpp)
   target_link_libraries(test_unit_stellar_evolution PRIVATE cosmosim_all)
   add_test(NAME unit_stellar_evolution COMMAND test_unit_stellar_evolution)
+  add_executable(test_unit_stellar_feedback tests/unit/test_stellar_feedback.cpp)
+  target_link_libraries(test_unit_stellar_feedback PRIVATE cosmosim_all)
+  add_test(NAME unit_stellar_feedback COMMAND test_unit_stellar_feedback)
 
   add_executable(test_integration_cooling_relaxation tests/integration/test_cooling_relaxation.cpp)
   target_link_libraries(test_integration_cooling_relaxation PRIVATE cosmosim_all)
@@ -282,6 +286,9 @@ if(COSMOSIM_ENABLE_TESTS)
   add_executable(test_integration_star_formation_box tests/integration/test_star_formation_box.cpp)
   target_link_libraries(test_integration_star_formation_box PRIVATE cosmosim_all)
   add_test(NAME integration_star_formation_box COMMAND test_integration_star_formation_box)
+  add_executable(test_integration_stellar_feedback_box tests/integration/test_stellar_feedback_box.cpp)
+  target_link_libraries(test_integration_stellar_feedback_box PRIVATE cosmosim_all)
+  add_test(NAME integration_stellar_feedback_box COMMAND test_integration_stellar_feedback_box)
 
   add_executable(test_integration_simulation_state_pipeline tests/integration/test_simulation_state_pipeline.cpp)
   target_link_libraries(test_integration_simulation_state_pipeline PRIVATE cosmosim_all)
@@ -457,6 +464,8 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
 
   add_executable(bench_star_formation_spawn bench/bench_star_formation_spawn.cpp)
   target_link_libraries(bench_star_formation_spawn PRIVATE cosmosim_all)
+  add_executable(bench_stellar_feedback_deposition bench/bench_stellar_feedback_deposition.cpp)
+  target_link_libraries(bench_stellar_feedback_deposition PRIVATE cosmosim_all)
 
 endif()
 

@@ -118,9 +118,35 @@ void testDefaultsCanonicalizationAndDeterminism() {
   const auto frozen_second = cosmosim::core::loadFrozenConfigFromString(second, "second");
 
   assert(frozen_first.config.physics.enable_cooling);
+  assert(frozen_first.config.physics.fb_mode == "thermal_kinetic_momentum");
   assert(frozen_first.config.parallel.deterministic_reduction);
   assert(frozen_first.normalized_text == frozen_second.normalized_text);
   assert(frozen_first.provenance.config_hash_hex == frozen_second.provenance.config_hash_hex);
+}
+
+void testFeedbackConfigKeysAndValidation() {
+  const std::string good_text = R"(
+[mode]
+mode = zoom_in
+[physics]
+fb_mode = momentum
+fb_variant = stochastic
+fb_stochastic_event_probability = 1.0
+fb_neighbor_count = 4
+)";
+  const auto frozen = cosmosim::core::loadFrozenConfigFromString(good_text, "feedback_good");
+  assert(frozen.config.physics.fb_mode == "momentum");
+  assert(frozen.config.physics.fb_variant == "stochastic");
+  assert(frozen.config.physics.fb_neighbor_count == 4);
+
+  const std::string bad_text = "[mode]\nmode = zoom_in\n[physics]\nfb_mode = hidden_magic\n";
+  bool threw = false;
+  try {
+    (void)cosmosim::core::loadFrozenConfigFromString(bad_text, "feedback_bad");
+  } catch (const cosmosim::core::ConfigError&) {
+    threw = true;
+  }
+  assert(threw);
 }
 
 }  // namespace
@@ -133,5 +159,6 @@ int main() {
   testInvalidEnumFails();
   testBoundaryModeValidation();
   testDefaultsCanonicalizationAndDeterminism();
+  testFeedbackConfigKeysAndValidation();
   return 0;
 }
