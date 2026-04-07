@@ -58,3 +58,20 @@ Copy `CMakeUserPresets.json.example` to `CMakeUserPresets.json` for workstation-
 
 - Optional dependencies are **opt-in** via preset/feature flags.
 - If an enabled dependency is missing, configure now fails fast with actionable error text (no silent fallback).
+
+
+## CI guard scripts
+
+Use repository guard scripts to enforce preset and feature-path discipline locally before pushing:
+
+```bash
+./scripts/ci/check_repo_hygiene.sh
+./scripts/ci/guard_feature_paths.sh
+```
+
+`guard_feature_paths.sh` intentionally runs both:
+
+- CPU baseline (`cpu-only-debug`)
+- PM/HDF5/FFTW feature path (`pm-hdf5-fftw-debug`) with targeted PM tests
+
+This avoids false confidence from CPU-only success when a dependency-enabled path is the real target.
