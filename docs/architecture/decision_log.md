@@ -45,3 +45,29 @@ Do **not** authorize progression to P20+ until all required dependency-enabled p
 ### Evidence references
 - `docs/repair_state_recap.md`
 - `docs/repair_closeout_report.md`
+
+## 2026-04-07 — ADR-REPAIR-BLOCK-003: Keep P20 progression blocked until PM HDF5+FFTW validation passes
+
+### Status
+Accepted (stabilization gate enforcement)
+
+### Context
+Dependency-enabled stabilization validation was re-run with presets in this environment.
+
+- CPU-only configure/build/test passed.
+- HDF5 configure/build/test passed.
+- PM HDF5+FFTW configure/build passed, but test preset failed (`2/36` failures):
+  - `unit_pm_solver` assertion failure in `tests/unit/test_pm_solver.cpp:82`.
+  - `integration_tree_pm_coupling_periodic` runtime failure with `rel_l2=18129.9` against required `<= 0.75`.
+
+### Decision
+Progression beyond P19 remains blocked. Do not authorize P20 until `test-pm-hdf5-fftw-debug` passes completely.
+
+### Consequences
+- Positive: Enforces dependency-enabled acceptance criteria and avoids CPU-only false closure.
+- Positive: Keeps blocker scope narrow (PM/FFTW test path) without speculative refactoring.
+- Tradeoff: Delivery remains gated pending PM HDF5+FFTW test stabilization.
+
+### Evidence references
+- `docs/repair_closeout_report.md`
+- `docs/repair_open_issues.md`
