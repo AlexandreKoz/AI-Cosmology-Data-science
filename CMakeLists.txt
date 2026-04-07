@@ -144,7 +144,8 @@ add_library(cosmosim_amr STATIC src/amr/amr_module.cpp)
 add_library(cosmosim_physics STATIC
   src/physics/physics_module.cpp
   src/physics/cooling_heating.cpp
-  src/physics/star_formation.cpp)
+  src/physics/star_formation.cpp
+  src/physics/stellar_evolution.cpp)
 add_library(cosmosim_io STATIC
   src/io/io_module.cpp
   src/io/ic_reader.cpp
@@ -266,9 +267,17 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_unit_star_formation PRIVATE cosmosim_all)
   add_test(NAME unit_star_formation COMMAND test_unit_star_formation)
 
+  add_executable(test_unit_stellar_evolution tests/unit/test_stellar_evolution.cpp)
+  target_link_libraries(test_unit_stellar_evolution PRIVATE cosmosim_all)
+  add_test(NAME unit_stellar_evolution COMMAND test_unit_stellar_evolution)
+
   add_executable(test_integration_cooling_relaxation tests/integration/test_cooling_relaxation.cpp)
   target_link_libraries(test_integration_cooling_relaxation PRIVATE cosmosim_all)
   add_test(NAME integration_cooling_relaxation COMMAND test_integration_cooling_relaxation)
+
+  add_executable(test_integration_stellar_evolution_ssp tests/integration/test_stellar_evolution_ssp.cpp)
+  target_link_libraries(test_integration_stellar_evolution_ssp PRIVATE cosmosim_all)
+  add_test(NAME integration_stellar_evolution_ssp COMMAND test_integration_stellar_evolution_ssp)
 
   add_executable(test_integration_star_formation_box tests/integration/test_star_formation_box.cpp)
   target_link_libraries(test_integration_star_formation_box PRIVATE cosmosim_all)
@@ -442,6 +451,9 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
 
   add_executable(bench_cooling_heating_source bench/bench_cooling_heating_source.cpp)
   target_link_libraries(bench_cooling_heating_source PRIVATE cosmosim_all)
+
+  add_executable(bench_stellar_evolution_bookkeeping bench/bench_stellar_evolution_bookkeeping.cpp)
+  target_link_libraries(bench_stellar_evolution_bookkeeping PRIVATE cosmosim_all)
 
   add_executable(bench_star_formation_spawn bench/bench_star_formation_spawn.cpp)
   target_link_libraries(bench_star_formation_spawn PRIVATE cosmosim_all)

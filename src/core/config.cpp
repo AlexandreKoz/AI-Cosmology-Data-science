@@ -280,6 +280,9 @@ void validateConfig(const SimulationConfig& config) {
   if (config.physics.sf_epsilon_ff < 0.0 || config.physics.sf_epsilon_ff > 1.0) {
     throw ConfigError("physics.sf_epsilon_ff must be in [0, 1]");
   }
+  if (config.physics.stellar_evolution_hubble_time_years <= 0.0) {
+    throw ConfigError("physics.stellar_evolution_hubble_time_years must be > 0");
+  }
   const ModePolicy policy = buildModePolicy(config.mode);
   validateModePolicy(config, policy);
 }
@@ -325,6 +328,8 @@ void validateConfig(const SimulationConfig& config) {
   stream << "enable_star_formation = "
          << (frozen.config.physics.enable_star_formation ? "true" : "false") << '\n';
   stream << "enable_feedback = " << (frozen.config.physics.enable_feedback ? "true" : "false") << '\n';
+  stream << "enable_stellar_evolution = "
+         << (frozen.config.physics.enable_stellar_evolution ? "true" : "false") << '\n';
   stream << "reionization_model = " << frozen.config.physics.reionization_model << '\n';
   stream << "uv_background_model = " << frozen.config.physics.uv_background_model << '\n';
   stream << "self_shielding_model = " << frozen.config.physics.self_shielding_model << '\n';
@@ -341,6 +346,9 @@ void validateConfig(const SimulationConfig& config) {
   stream << "sf_stochastic_spawning = "
          << (frozen.config.physics.sf_stochastic_spawning ? "true" : "false") << '\n';
   stream << "sf_random_seed = " << frozen.config.physics.sf_random_seed << '\n';
+  stream << "stellar_evolution_table_path = " << frozen.config.physics.stellar_evolution_table_path << '\n';
+  stream << "stellar_evolution_hubble_time_years = "
+         << frozen.config.physics.stellar_evolution_hubble_time_years << '\n';
   stream << "\n[output]\n";
   stream << "run_name = " << frozen.config.output.run_name << '\n';
   stream << "output_directory = " << frozen.config.output.output_directory << '\n';
@@ -469,6 +477,9 @@ void validateConfig(const SimulationConfig& config) {
                 "physics.enable_star_formation");
   frozen.config.physics.enable_feedback = parseBool(
       requireString(entries, consumed, "physics.enable_feedback", "true"), "physics.enable_feedback");
+  frozen.config.physics.enable_stellar_evolution = parseBool(
+      requireString(entries, consumed, "physics.enable_stellar_evolution", "true"),
+      "physics.enable_stellar_evolution");
   frozen.config.physics.reionization_model =
       requireString(entries, consumed, "physics.reionization_model", "hm12");
   frozen.config.physics.uv_background_model =
@@ -503,6 +514,11 @@ void validateConfig(const SimulationConfig& config) {
   frozen.config.physics.sf_random_seed = static_cast<std::uint64_t>(parseNumber<unsigned long long>(
       requireString(entries, consumed, "physics.sf_random_seed", "123456789"),
       "physics.sf_random_seed"));
+  frozen.config.physics.stellar_evolution_table_path =
+      requireString(entries, consumed, "physics.stellar_evolution_table_path", "");
+  frozen.config.physics.stellar_evolution_hubble_time_years = parseFloating(
+      requireString(entries, consumed, "physics.stellar_evolution_hubble_time_years", "1.44e10"),
+      "physics.stellar_evolution_hubble_time_years");
 
   frozen.config.output.run_name =
       requireString(entries, consumed, "output.run_name", frozen.config.output.run_name);

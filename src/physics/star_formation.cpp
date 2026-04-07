@@ -218,6 +218,16 @@ StarFormationStepReport StarFormationModel::apply(
     state.star_particles.formation_scale_factor[star_index] = scale_factor;
     state.star_particles.birth_mass_code[star_index] = transfer_mass;
     state.star_particles.metallicity_mass_fraction[star_index] = cell.metallicity_mass_fraction;
+    state.star_particles.stellar_age_years_last[star_index] = 0.0;
+    state.star_particles.stellar_returned_mass_cumulative_code[star_index] = 0.0;
+    state.star_particles.stellar_returned_metals_cumulative_code[star_index] = 0.0;
+    state.star_particles.stellar_feedback_energy_cumulative_erg[star_index] = 0.0;
+    for (std::size_t channel = 0; channel < state.star_particles.stellar_returned_mass_channel_cumulative_code.size();
+         ++channel) {
+      state.star_particles.stellar_returned_mass_channel_cumulative_code[channel][star_index] = 0.0;
+      state.star_particles.stellar_returned_metals_channel_cumulative_code[channel][star_index] = 0.0;
+      state.star_particles.stellar_feedback_energy_channel_cumulative_erg[channel][star_index] = 0.0;
+    }
 
     ++report.counters.spawn_events;
     report.counters.spawned_particles += 1;
