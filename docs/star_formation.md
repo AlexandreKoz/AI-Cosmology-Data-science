@@ -18,6 +18,12 @@ A gas cell is eligible when all checks pass:
 
 These checks are separated from rate evaluation and spawn logic in `StarFormationModel`.
 
+## Time-stepping integration
+
+`StarFormationCallback` hooks the module into the `kSourceTerms` stage of
+`core::StepOrchestrator`, so star formation can run inside the standard kick-drift-kick loop
+instead of only in standalone tests/tools.
+
 ## Spawn modes
 
 - **Deterministic** (`physics.sf_stochastic_spawning=false`):

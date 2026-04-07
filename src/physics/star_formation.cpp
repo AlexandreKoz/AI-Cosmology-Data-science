@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <numeric>
 #include <limits>
 #include <sstream>
 #include <stdexcept>
@@ -257,6 +258,79 @@ core::ModuleSidecarBlock StarFormationModel::buildMetadataSidecar(const StarForm
     block.payload[i] = static_cast<std::byte>(text[i]);
   }
   return block;
+}
+
+StarFormationConfig makeStarFormationConfig(const core::PhysicsConfig& physics_config) {
+  StarFormationConfig config;
+  config.enabled = physics_config.enable_star_formation;
+  config.density_threshold_code = physics_config.sf_density_threshold_code;
+  config.temperature_threshold_k = physics_config.sf_temperature_threshold_k;
+  config.min_converging_flow_rate_code = physics_config.sf_min_converging_flow_rate_code;
+  config.epsilon_ff = physics_config.sf_epsilon_ff;
+  config.min_star_particle_mass_code = physics_config.sf_min_star_particle_mass_code;
+  config.stochastic_spawning = physics_config.sf_stochastic_spawning;
+  config.random_seed = physics_config.sf_random_seed;
+  return config;
+}
+
+StarFormationCallback::StarFormationCallback(StarFormationModel model, std::uint32_t rank_local_seed_offset)
+    : m_model(std::move(model)), m_rank_local_seed_offset(rank_local_seed_offset) {}
+
+std::string_view StarFormationCallback::callbackName() const { return "star_formation_callback"; }
+
+void StarFormationCallback::onStage(core::StepContext& context) {
+  if (context.stage != core::IntegrationStage::kSourceTerms) {
+    return;
+  }
+
+  const std::size_t cell_count = context.state.cells.size();
+  if (cell_count == 0) {
+    m_last_step_report = {};
+    return;
+  }
+  ensureFieldSizes(cell_count);
+
+  std::span<const std::uint32_t> active_cells = context.active_set.cell_indices;
+  if (!context.active_set.cells_are_subset && active_cells.empty()) {
+    m_full_cell_indices.resize(cell_count);
+    std::iota(m_full_cell_indices.begin(), m_full_cell_indices.end(), 0U);
+    active_cells = m_full_cell_indices;
+  }
+
+  m_last_step_report = m_model.apply(
+      context.state,
+      active_cells,
+      m_velocity_divergence_code,
+      m_metallicity_mass_fraction,
+      context.integrator_state.dt_time_code,
+      context.integrator_state.current_scale_factor,
+      context.integrator_state.step_index,
+      m_rank_local_seed_offset);
+}
+
+void StarFormationCallback::setVelocityDivergenceCode(std::span<const double> velocity_divergence_code) {
+  m_velocity_divergence_code.assign(velocity_divergence_code.begin(), velocity_divergence_code.end());
+}
+
+void StarFormationCallback::setMetallicityMassFraction(std::span<const double> metallicity_mass_fraction) {
+  m_metallicity_mass_fraction.assign(metallicity_mass_fraction.begin(), metallicity_mass_fraction.end());
+}
+
+void StarFormationCallback::setRankLocalSeedOffset(std::uint32_t rank_local_seed_offset) {
+  m_rank_local_seed_offset = rank_local_seed_offset;
+}
+
+const StarFormationStepReport& StarFormationCallback::lastStepReport() const noexcept {
+  return m_last_step_report;
+}
+
+void StarFormationCallback::ensureFieldSizes(std::size_t cell_count) {
+  if (m_velocity_divergence_code.size() < cell_count) {
+    m_velocity_divergence_code.resize(cell_count, 0.0);
+  }
+  if (m_metallicity_mass_fraction.size() < cell_count) {
+    m_metallicity_mass_fraction.resize(cell_count, 0.0);
+  }
 }
 
 }  // namespace cosmosim::physics

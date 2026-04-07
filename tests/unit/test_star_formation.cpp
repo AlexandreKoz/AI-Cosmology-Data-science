@@ -3,6 +3,7 @@
 #include <cmath>
 #include <string>
 
+#include "cosmosim/core/time_integration.hpp"
 #include "cosmosim/core/simulation_state.hpp"
 #include "cosmosim/physics/star_formation.hpp"
 
@@ -72,11 +73,45 @@ void testConservationAndMetadata() {
   assert(payload.find("spawn_events=1") != std::string::npos);
 }
 
+void testTimeIntegrationCallbackHook() {
+  cosmosim::core::SimulationState state;
+  state.resizeCells(1);
+  state.cells.mass_code[0] = 2.0;
+  state.gas_cells.density_code[0] = 20.0;
+  state.gas_cells.temperature_code[0] = 5.0e3;
+
+  cosmosim::physics::StarFormationConfig config;
+  config.stochastic_spawning = false;
+  config.epsilon_ff = 0.1;
+  cosmosim::physics::StarFormationCallback callback{cosmosim::physics::StarFormationModel(config)};
+  callback.setVelocityDivergenceCode(std::array<double, 1>{-0.5});
+  callback.setMetallicityMassFraction(std::array<double, 1>{0.02});
+
+  cosmosim::core::IntegratorState integrator_state;
+  integrator_state.dt_time_code = 1.0e8;
+  const std::array<std::uint32_t, 1> active_cells{0};
+  cosmosim::core::ActiveSetDescriptor active_set{
+      .cell_indices = active_cells,
+      .cells_are_subset = true,
+  };
+  cosmosim::core::StepContext context{
+      .state = state,
+      .integrator_state = integrator_state,
+      .active_set = active_set,
+      .stage = cosmosim::core::IntegrationStage::kSourceTerms,
+  };
+
+  callback.onStage(context);
+  assert(callback.lastStepReport().counters.spawn_events == 1);
+  assert(state.particles.size() == 1);
+}
+
 }  // namespace
 
 int main() {
   testThresholdEligibility();
   testSchmidtKennicuttRate();
   testConservationAndMetadata();
+  testTimeIntegrationCallbackHook();
   return 0;
 }

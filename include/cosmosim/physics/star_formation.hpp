@@ -2,11 +2,14 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
 #include <span>
 #include <string>
 #include <vector>
 
+#include "cosmosim/core/config.hpp"
 #include "cosmosim/core/simulation_state.hpp"
+#include "cosmosim/core/time_integration.hpp"
 
 namespace cosmosim::physics {
 
@@ -84,6 +87,32 @@ class StarFormationModel {
 
  private:
   StarFormationConfig m_config;
+};
+
+[[nodiscard]] StarFormationConfig makeStarFormationConfig(const core::PhysicsConfig& physics_config);
+
+class StarFormationCallback final : public core::IntegrationCallback {
+ public:
+  explicit StarFormationCallback(StarFormationModel model, std::uint32_t rank_local_seed_offset = 0);
+
+  [[nodiscard]] std::string_view callbackName() const override;
+  void onStage(core::StepContext& context) override;
+
+  void setVelocityDivergenceCode(std::span<const double> velocity_divergence_code);
+  void setMetallicityMassFraction(std::span<const double> metallicity_mass_fraction);
+  void setRankLocalSeedOffset(std::uint32_t rank_local_seed_offset);
+
+  [[nodiscard]] const StarFormationStepReport& lastStepReport() const noexcept;
+
+ private:
+  void ensureFieldSizes(std::size_t cell_count);
+
+  StarFormationModel m_model;
+  std::uint32_t m_rank_local_seed_offset = 0;
+  std::vector<std::uint32_t> m_full_cell_indices;
+  std::vector<double> m_velocity_divergence_code;
+  std::vector<double> m_metallicity_mass_fraction;
+  StarFormationStepReport m_last_step_report;
 };
 
 }  // namespace cosmosim::physics
