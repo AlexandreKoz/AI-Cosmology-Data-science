@@ -180,7 +180,12 @@ void writeScalarF64Attribute(hid_t location, std::string_view key, double value)
 }
 
 template <typename T>
-void writeDataset1d(hid_t group, std::string_view name, hid_t file_type, hid_t memory_type, const std::vector<T>& values) {
+void writeDataset1d(
+    hid_t group,
+    std::string_view name,
+    hid_t file_type,
+    hid_t memory_type,
+    std::span<const T> values) {
   hsize_t dims[1] = {static_cast<hsize_t>(values.size())};
   Hdf5Handle space(H5Screate_simple(1, dims, nullptr));
   Hdf5Handle dataset(H5Dcreate2(group, std::string(name).c_str(), file_type, space.get(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
@@ -190,6 +195,16 @@ void writeDataset1d(hid_t group, std::string_view name, hid_t file_type, hid_t m
   if (!values.empty() && H5Dwrite(dataset.get(), memory_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, values.data()) < 0) {
     throw std::runtime_error("failed writing dataset: " + std::string(name));
   }
+}
+
+template <typename T, typename Allocator>
+void writeDataset1d(
+    hid_t group,
+    std::string_view name,
+    hid_t file_type,
+    hid_t memory_type,
+    const std::vector<T, Allocator>& values) {
+  writeDataset1d<T>(group, name, file_type, memory_type, std::span<const T>(values.data(), values.size()));
 }
 
 template <typename T>
@@ -208,6 +223,18 @@ template <typename T>
     throw std::runtime_error("failed reading dataset: " + std::string(name));
   }
   return values;
+}
+
+template <typename T>
+[[nodiscard]] core::AlignedVector<T> toAlignedVector(const std::vector<T>& values) {
+  core::AlignedVector<T> aligned(values.size());
+  std::copy(values.begin(), values.end(), aligned.begin());
+  return aligned;
+}
+
+template <typename T>
+[[nodiscard]] core::AlignedVector<T> readDataset1dAligned(hid_t group, std::string_view name, hid_t memory_type) {
+  return toAlignedVector(readDataset1d<T>(group, name, memory_type));
 }
 
 void writeStringDataset(hid_t group, std::string_view name, const std::string& value) {
@@ -321,45 +348,50 @@ void writeStateGroup(hid_t root, const core::SimulationState& state) {
 void readStateGroup(hid_t root, core::SimulationState& state) {
   Hdf5Handle state_group(H5Gopen2(root, "/state", H5P_DEFAULT));
   Hdf5Handle particles_group(H5Gopen2(state_group.get(), "particles", H5P_DEFAULT));
-  state.particles.position_x_comoving = readDataset1d<double>(particles_group.get(), "position_x_comoving", H5T_NATIVE_DOUBLE);
-  state.particles.position_y_comoving = readDataset1d<double>(particles_group.get(), "position_y_comoving", H5T_NATIVE_DOUBLE);
-  state.particles.position_z_comoving = readDataset1d<double>(particles_group.get(), "position_z_comoving", H5T_NATIVE_DOUBLE);
-  state.particles.velocity_x_peculiar = readDataset1d<double>(particles_group.get(), "velocity_x_peculiar", H5T_NATIVE_DOUBLE);
-  state.particles.velocity_y_peculiar = readDataset1d<double>(particles_group.get(), "velocity_y_peculiar", H5T_NATIVE_DOUBLE);
-  state.particles.velocity_z_peculiar = readDataset1d<double>(particles_group.get(), "velocity_z_peculiar", H5T_NATIVE_DOUBLE);
-  state.particles.mass_code = readDataset1d<double>(particles_group.get(), "mass_code", H5T_NATIVE_DOUBLE);
-  state.particles.time_bin = readDataset1d<std::uint8_t>(particles_group.get(), "time_bin", H5T_NATIVE_UINT8);
+  state.particles.position_x_comoving = readDataset1dAligned<double>(particles_group.get(), "position_x_comoving", H5T_NATIVE_DOUBLE);
+  state.particles.position_y_comoving = readDataset1dAligned<double>(particles_group.get(), "position_y_comoving", H5T_NATIVE_DOUBLE);
+  state.particles.position_z_comoving = readDataset1dAligned<double>(particles_group.get(), "position_z_comoving", H5T_NATIVE_DOUBLE);
+  state.particles.velocity_x_peculiar = readDataset1dAligned<double>(particles_group.get(), "velocity_x_peculiar", H5T_NATIVE_DOUBLE);
+  state.particles.velocity_y_peculiar = readDataset1dAligned<double>(particles_group.get(), "velocity_y_peculiar", H5T_NATIVE_DOUBLE);
+  state.particles.velocity_z_peculiar = readDataset1dAligned<double>(particles_group.get(), "velocity_z_peculiar", H5T_NATIVE_DOUBLE);
+  state.particles.mass_code = readDataset1dAligned<double>(particles_group.get(), "mass_code", H5T_NATIVE_DOUBLE);
+  state.particles.time_bin = readDataset1dAligned<std::uint8_t>(particles_group.get(), "time_bin", H5T_NATIVE_UINT8);
 
   Hdf5Handle particle_sidecar_group(H5Gopen2(state_group.get(), "particle_sidecar", H5P_DEFAULT));
-  state.particle_sidecar.particle_id = readDataset1d<std::uint64_t>(particle_sidecar_group.get(), "particle_id", H5T_NATIVE_UINT64);
-  state.particle_sidecar.sfc_key = readDataset1d<std::uint64_t>(particle_sidecar_group.get(), "sfc_key", H5T_NATIVE_UINT64);
-  state.particle_sidecar.species_tag = readDataset1d<std::uint32_t>(particle_sidecar_group.get(), "species_tag", H5T_NATIVE_UINT32);
-  state.particle_sidecar.particle_flags = readDataset1d<std::uint32_t>(particle_sidecar_group.get(), "particle_flags", H5T_NATIVE_UINT32);
-  state.particle_sidecar.owning_rank = readDataset1d<std::uint32_t>(particle_sidecar_group.get(), "owning_rank", H5T_NATIVE_UINT32);
+  state.particle_sidecar.particle_id =
+      readDataset1dAligned<std::uint64_t>(particle_sidecar_group.get(), "particle_id", H5T_NATIVE_UINT64);
+  state.particle_sidecar.sfc_key =
+      readDataset1dAligned<std::uint64_t>(particle_sidecar_group.get(), "sfc_key", H5T_NATIVE_UINT64);
+  state.particle_sidecar.species_tag =
+      readDataset1dAligned<std::uint32_t>(particle_sidecar_group.get(), "species_tag", H5T_NATIVE_UINT32);
+  state.particle_sidecar.particle_flags =
+      readDataset1dAligned<std::uint32_t>(particle_sidecar_group.get(), "particle_flags", H5T_NATIVE_UINT32);
+  state.particle_sidecar.owning_rank =
+      readDataset1dAligned<std::uint32_t>(particle_sidecar_group.get(), "owning_rank", H5T_NATIVE_UINT32);
 
   Hdf5Handle cells_group(H5Gopen2(state_group.get(), "cells", H5P_DEFAULT));
-  state.cells.center_x_comoving = readDataset1d<double>(cells_group.get(), "center_x_comoving", H5T_NATIVE_DOUBLE);
-  state.cells.center_y_comoving = readDataset1d<double>(cells_group.get(), "center_y_comoving", H5T_NATIVE_DOUBLE);
-  state.cells.center_z_comoving = readDataset1d<double>(cells_group.get(), "center_z_comoving", H5T_NATIVE_DOUBLE);
-  state.cells.mass_code = readDataset1d<double>(cells_group.get(), "mass_code", H5T_NATIVE_DOUBLE);
-  state.cells.time_bin = readDataset1d<std::uint8_t>(cells_group.get(), "time_bin", H5T_NATIVE_UINT8);
-  state.cells.patch_index = readDataset1d<std::uint32_t>(cells_group.get(), "patch_index", H5T_NATIVE_UINT32);
+  state.cells.center_x_comoving = readDataset1dAligned<double>(cells_group.get(), "center_x_comoving", H5T_NATIVE_DOUBLE);
+  state.cells.center_y_comoving = readDataset1dAligned<double>(cells_group.get(), "center_y_comoving", H5T_NATIVE_DOUBLE);
+  state.cells.center_z_comoving = readDataset1dAligned<double>(cells_group.get(), "center_z_comoving", H5T_NATIVE_DOUBLE);
+  state.cells.mass_code = readDataset1dAligned<double>(cells_group.get(), "mass_code", H5T_NATIVE_DOUBLE);
+  state.cells.time_bin = readDataset1dAligned<std::uint8_t>(cells_group.get(), "time_bin", H5T_NATIVE_UINT8);
+  state.cells.patch_index = readDataset1dAligned<std::uint32_t>(cells_group.get(), "patch_index", H5T_NATIVE_UINT32);
 
   Hdf5Handle gas_group(H5Gopen2(state_group.get(), "gas_cells", H5P_DEFAULT));
-  state.gas_cells.density_code = readDataset1d<double>(gas_group.get(), "density_code", H5T_NATIVE_DOUBLE);
-  state.gas_cells.pressure_code = readDataset1d<double>(gas_group.get(), "pressure_code", H5T_NATIVE_DOUBLE);
-  state.gas_cells.internal_energy_code = readDataset1d<double>(gas_group.get(), "internal_energy_code", H5T_NATIVE_DOUBLE);
-  state.gas_cells.temperature_code = readDataset1d<double>(gas_group.get(), "temperature_code", H5T_NATIVE_DOUBLE);
-  state.gas_cells.sound_speed_code = readDataset1d<double>(gas_group.get(), "sound_speed_code", H5T_NATIVE_DOUBLE);
-  state.gas_cells.recon_gradient_x = readDataset1d<double>(gas_group.get(), "recon_gradient_x", H5T_NATIVE_DOUBLE);
-  state.gas_cells.recon_gradient_y = readDataset1d<double>(gas_group.get(), "recon_gradient_y", H5T_NATIVE_DOUBLE);
-  state.gas_cells.recon_gradient_z = readDataset1d<double>(gas_group.get(), "recon_gradient_z", H5T_NATIVE_DOUBLE);
+  state.gas_cells.density_code = readDataset1dAligned<double>(gas_group.get(), "density_code", H5T_NATIVE_DOUBLE);
+  state.gas_cells.pressure_code = readDataset1dAligned<double>(gas_group.get(), "pressure_code", H5T_NATIVE_DOUBLE);
+  state.gas_cells.internal_energy_code = readDataset1dAligned<double>(gas_group.get(), "internal_energy_code", H5T_NATIVE_DOUBLE);
+  state.gas_cells.temperature_code = readDataset1dAligned<double>(gas_group.get(), "temperature_code", H5T_NATIVE_DOUBLE);
+  state.gas_cells.sound_speed_code = readDataset1dAligned<double>(gas_group.get(), "sound_speed_code", H5T_NATIVE_DOUBLE);
+  state.gas_cells.recon_gradient_x = readDataset1dAligned<double>(gas_group.get(), "recon_gradient_x", H5T_NATIVE_DOUBLE);
+  state.gas_cells.recon_gradient_y = readDataset1dAligned<double>(gas_group.get(), "recon_gradient_y", H5T_NATIVE_DOUBLE);
+  state.gas_cells.recon_gradient_z = readDataset1dAligned<double>(gas_group.get(), "recon_gradient_z", H5T_NATIVE_DOUBLE);
 
   Hdf5Handle patches_group(H5Gopen2(state_group.get(), "patches", H5P_DEFAULT));
-  state.patches.patch_id = readDataset1d<std::uint64_t>(patches_group.get(), "patch_id", H5T_NATIVE_UINT64);
-  state.patches.level = readDataset1d<std::int32_t>(patches_group.get(), "level", H5T_NATIVE_INT32);
-  state.patches.first_cell = readDataset1d<std::uint32_t>(patches_group.get(), "first_cell", H5T_NATIVE_UINT32);
-  state.patches.cell_count = readDataset1d<std::uint32_t>(patches_group.get(), "cell_count", H5T_NATIVE_UINT32);
+  state.patches.patch_id = readDataset1dAligned<std::uint64_t>(patches_group.get(), "patch_id", H5T_NATIVE_UINT64);
+  state.patches.level = readDataset1dAligned<std::int32_t>(patches_group.get(), "level", H5T_NATIVE_INT32);
+  state.patches.first_cell = readDataset1dAligned<std::uint32_t>(patches_group.get(), "first_cell", H5T_NATIVE_UINT32);
+  state.patches.cell_count = readDataset1dAligned<std::uint32_t>(patches_group.get(), "cell_count", H5T_NATIVE_UINT32);
 
   const auto species_count = readDataset1d<std::uint64_t>(state_group.get(), "species_count_by_species", H5T_NATIVE_UINT64);
   if (species_count.size() != state.species.count_by_species.size()) {
@@ -368,21 +400,28 @@ void readStateGroup(hid_t root, core::SimulationState& state) {
   std::copy(species_count.begin(), species_count.end(), state.species.count_by_species.begin());
 
   Hdf5Handle star_group(H5Gopen2(state_group.get(), "star_particles", H5P_DEFAULT));
-  state.star_particles.particle_index = readDataset1d<std::uint32_t>(star_group.get(), "particle_index", H5T_NATIVE_UINT32);
-  state.star_particles.formation_scale_factor = readDataset1d<double>(star_group.get(), "formation_scale_factor", H5T_NATIVE_DOUBLE);
-  state.star_particles.birth_mass_code = readDataset1d<double>(star_group.get(), "birth_mass_code", H5T_NATIVE_DOUBLE);
-  state.star_particles.metallicity_mass_fraction = readDataset1d<double>(star_group.get(), "metallicity_mass_fraction", H5T_NATIVE_DOUBLE);
+  state.star_particles.particle_index =
+      readDataset1dAligned<std::uint32_t>(star_group.get(), "particle_index", H5T_NATIVE_UINT32);
+  state.star_particles.formation_scale_factor =
+      readDataset1dAligned<double>(star_group.get(), "formation_scale_factor", H5T_NATIVE_DOUBLE);
+  state.star_particles.birth_mass_code = readDataset1dAligned<double>(star_group.get(), "birth_mass_code", H5T_NATIVE_DOUBLE);
+  state.star_particles.metallicity_mass_fraction =
+      readDataset1dAligned<double>(star_group.get(), "metallicity_mass_fraction", H5T_NATIVE_DOUBLE);
 
   Hdf5Handle bh_group(H5Gopen2(state_group.get(), "black_holes", H5P_DEFAULT));
-  state.black_holes.particle_index = readDataset1d<std::uint32_t>(bh_group.get(), "particle_index", H5T_NATIVE_UINT32);
-  state.black_holes.subgrid_mass_code = readDataset1d<double>(bh_group.get(), "subgrid_mass_code", H5T_NATIVE_DOUBLE);
-  state.black_holes.accretion_rate_code = readDataset1d<double>(bh_group.get(), "accretion_rate_code", H5T_NATIVE_DOUBLE);
-  state.black_holes.feedback_energy_code = readDataset1d<double>(bh_group.get(), "feedback_energy_code", H5T_NATIVE_DOUBLE);
+  state.black_holes.particle_index = readDataset1dAligned<std::uint32_t>(bh_group.get(), "particle_index", H5T_NATIVE_UINT32);
+  state.black_holes.subgrid_mass_code = readDataset1dAligned<double>(bh_group.get(), "subgrid_mass_code", H5T_NATIVE_DOUBLE);
+  state.black_holes.accretion_rate_code =
+      readDataset1dAligned<double>(bh_group.get(), "accretion_rate_code", H5T_NATIVE_DOUBLE);
+  state.black_holes.feedback_energy_code =
+      readDataset1dAligned<double>(bh_group.get(), "feedback_energy_code", H5T_NATIVE_DOUBLE);
 
   Hdf5Handle tracer_group(H5Gopen2(state_group.get(), "tracers", H5P_DEFAULT));
-  state.tracers.particle_index = readDataset1d<std::uint32_t>(tracer_group.get(), "particle_index", H5T_NATIVE_UINT32);
-  state.tracers.parent_particle_id = readDataset1d<std::uint64_t>(tracer_group.get(), "parent_particle_id", H5T_NATIVE_UINT64);
-  state.tracers.injection_step = readDataset1d<std::uint64_t>(tracer_group.get(), "injection_step", H5T_NATIVE_UINT64);
+  state.tracers.particle_index = readDataset1dAligned<std::uint32_t>(tracer_group.get(), "particle_index", H5T_NATIVE_UINT32);
+  state.tracers.parent_particle_id =
+      readDataset1dAligned<std::uint64_t>(tracer_group.get(), "parent_particle_id", H5T_NATIVE_UINT64);
+  state.tracers.injection_step =
+      readDataset1dAligned<std::uint64_t>(tracer_group.get(), "injection_step", H5T_NATIVE_UINT64);
 
   state.metadata = core::StateMetadata::deserialize(readStringDataset(state_group.get(), "state_metadata"));
   state.rebuildSpeciesIndex();
