@@ -12,14 +12,3 @@ zoom_high_res_region = false
 run_name = minimal_smoke
 output_stem = snapshot
 restart_stem = restart
-
-[physics]
-enable_star_formation = true
-star_formation_model = schmidt_kennicutt
-star_spawning_mode = stochastic
-star_formation_efficiency_ff = 0.01
-star_formation_density_threshold_code = 10.0
-star_formation_temperature_threshold_k = 20000.0
-star_formation_virial_parameter_max = 1.0
-star_min_particle_mass_code = 0.1
-star_rng_seed_base = 1
