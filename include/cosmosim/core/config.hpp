@@ -41,6 +41,11 @@ struct PhysicsConfig {
   bool enable_star_formation = true;
   bool enable_feedback = true;
   std::string reionization_model = "hm12";
+  std::string uv_background_model = "hm12";
+  std::string self_shielding_model = "none";
+  std::string cooling_model = "primordial";
+  std::string metal_line_table_path;
+  double temperature_floor_k = 100.0;
 };
 
 struct OutputConfig {
