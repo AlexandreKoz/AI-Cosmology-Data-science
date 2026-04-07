@@ -25,3 +25,23 @@ Before any further repair implementation:
 ### Evidence references
 - `docs/repair_state_recap.md`
 - `docs/repair_open_issues.md`
+
+## 2026-04-07 — ADR-REPAIR-AUDIT-002: Hold progression to P20 until dependency-enabled presets are proven
+
+### Status
+Accepted (emergency stabilization gate)
+
+### Context
+Final repair audit was run against required scope. CPU-only path is green, but this environment lacks HDF5 development libraries, preventing configure/build/test execution on required HDF5 and PM/HDF5/FFTW paths.
+
+### Decision
+Do **not** authorize progression to P20+ until all required dependency-enabled preset commands pass in an environment with HDF5 (and FFTW for PM path).
+
+### Consequences
+- Positive: Prevents invalid closure claims based on CPU-only evidence.
+- Positive: Keeps dependency failure behavior explicit and actionable.
+- Tradeoff: Progression is delayed until proper feature-path environment is available.
+
+### Evidence references
+- `docs/repair_state_recap.md`
+- `docs/repair_closeout_report.md`
