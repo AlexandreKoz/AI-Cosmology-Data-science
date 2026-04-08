@@ -23,6 +23,7 @@ option(COSMOSIM_ENABLE_PYTHON "Enable Python tooling integration" OFF)
 option(COSMOSIM_ENABLE_TRACERS "Enable tracer update module" OFF)
 option(COSMOSIM_ENABLE_TESTS "Build unit and integration tests" ON)
 option(COSMOSIM_ENABLE_BENCHMARKS "Build benchmark/profiling hooks" ON)
+option(COSMOSIM_ENABLE_PROFILING "Enable built-in profiling instrumentation" ON)
 option(COSMOSIM_ENABLE_LTO "Enable interprocedural optimization (LTO)" OFF)
 
 # Backward-compatibility aliases for earlier build toggles.
@@ -109,7 +110,8 @@ add_library(cosmosim_core STATIC
   src/core/simulation_state.cpp
   src/core/soa_storage.cpp
   src/core/simulation_mode.cpp
-  src/core/time_integration.cpp)
+  src/core/time_integration.cpp
+  src/core/profiling.cpp)
 
 target_include_directories(cosmosim_core
   PUBLIC
@@ -124,7 +126,8 @@ target_compile_definitions(cosmosim_core
   PUBLIC
     COSMOSIM_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
     COSMOSIM_VERSION_MINOR=${PROJECT_VERSION_MINOR}
-    COSMOSIM_VERSION_PATCH=${PROJECT_VERSION_PATCH})
+    COSMOSIM_VERSION_PATCH=${PROJECT_VERSION_PATCH}
+    COSMOSIM_ENABLE_PROFILING=$<BOOL:${COSMOSIM_ENABLE_PROFILING}>)
 
 if(COSMOSIM_ENABLE_LTO)
   set_property(TARGET cosmosim_core PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
@@ -248,6 +251,11 @@ if(COSMOSIM_ENABLE_TESTS)
   add_test(NAME unit_soa_storage COMMAND test_unit_soa_storage)
 
 
+
+  add_executable(test_unit_profiling tests/unit/test_profiling.cpp)
+  target_link_libraries(test_unit_profiling PRIVATE cosmosim_core)
+  add_test(NAME unit_profiling COMMAND test_unit_profiling)
+
   add_executable(test_unit_time_integration tests/unit/test_time_integration.cpp)
   target_link_libraries(test_unit_time_integration PRIVATE cosmosim_core)
   add_test(NAME unit_time_integration COMMAND test_unit_time_integration)
@@ -336,6 +344,11 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_integration_reorder_compaction_sidecars PRIVATE cosmosim_core)
   add_test(NAME integration_reorder_compaction_sidecars COMMAND test_integration_reorder_compaction_sidecars)
 
+
+
+  add_executable(test_integration_profiling_mini_run tests/integration/test_profiling_mini_run.cpp)
+  target_link_libraries(test_integration_profiling_mini_run PRIVATE cosmosim_core)
+  add_test(NAME integration_profiling_mini_run COMMAND test_integration_profiling_mini_run)
 
   add_executable(test_integration_time_integration_loop tests/integration/test_time_integration_loop.cpp)
   target_link_libraries(test_integration_time_integration_loop PRIVATE cosmosim_all)
@@ -532,6 +545,10 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
   add_executable(bench_species_hot_cold_access bench/bench_species_hot_cold_access.cpp)
   target_link_libraries(bench_species_hot_cold_access PRIVATE cosmosim_core)
 
+
+
+  add_executable(bench_profiling_overhead bench/bench_profiling_overhead.cpp)
+  target_link_libraries(bench_profiling_overhead PRIVATE cosmosim_core)
 
   add_executable(bench_scheduler_overhead bench/bench_scheduler_overhead.cpp)
   add_executable(bench_analysis_diagnostics_overhead bench/bench_analysis_diagnostics_overhead.cpp)

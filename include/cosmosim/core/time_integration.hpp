@@ -11,6 +11,7 @@
 
 #include "cosmosim/core/cosmology.hpp"
 #include "cosmosim/core/simulation_mode.hpp"
+#include "cosmosim/core/profiling.hpp"
 #include "cosmosim/core/simulation_state.hpp"
 
 namespace cosmosim::core {
@@ -105,7 +106,8 @@ class StepOrchestrator {
       ActiveSetDescriptor active_set,
       const LambdaCdmBackground* cosmology_background,
       TransientStepWorkspace* workspace = nullptr,
-      const ModePolicy* mode_policy = nullptr) const;
+      const ModePolicy* mode_policy = nullptr,
+      ProfilerSession* profiler_session = nullptr) const;
 
  private:
   StageScheduler m_scheduler;
