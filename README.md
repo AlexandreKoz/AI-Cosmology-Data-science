@@ -76,6 +76,19 @@ Canonical configure presets:
 
 `CMakeUserPresets.json.example` provides a local override template for custom compilers/toolchains.
 
+
+## Python analysis bindings (optional)
+
+When `COSMOSIM_ENABLE_PYTHON=ON`, CMake builds a pybind11 extension and stages a package at `build/<preset>/python/cosmosim`.
+
+```bash
+cmake -S . -B build/py -DCOSMOSIM_ENABLE_PYTHON=ON -DCOSMOSIM_ENABLE_HDF5=ON -Dpybind11_DIR=$(python3 -m pybind11 --cmakedir)
+cmake --build build/py --target cosmosim_python_package
+PYTHONPATH=build/py/python python3 -c "import cosmosim; print(cosmosim.__version__())"
+```
+
+See `docs/python_bindings_analysis.md` for API scope, ownership/copy semantics, and current limitations.
+
 ## New-file placement rule (for future prompts)
 
 Before adding files, choose a module owner and place files by ownership:

@@ -14,6 +14,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(COSMOSIM_ENABLE_MPI "Enable MPI backend" OFF)
 option(COSMOSIM_ENABLE_HDF5 "Enable HDF5 I/O backend" OFF)
@@ -79,7 +80,13 @@ if(COSMOSIM_ENABLE_CUDA)
 endif()
 
 if(COSMOSIM_ENABLE_PYTHON)
-  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
+  find_package(pybind11 CONFIG QUIET)
+  if(NOT pybind11_FOUND)
+    message(FATAL_ERROR
+      "COSMOSIM_ENABLE_PYTHON=ON but pybind11 was not found.\n"
+      "Install pybind11 (pip/conda/system package) or provide -Dpybind11_DIR=/path/to/pybind11/share/cmake/pybind11.")
+  endif()
 endif()
 
 # Build metadata and generated configuration header.
@@ -227,6 +234,23 @@ target_link_libraries(cosmosim_all
 
 add_executable(cosmosim_harness src/core/harness_main.cpp)
 target_link_libraries(cosmosim_harness PRIVATE cosmosim_all)
+
+
+if(COSMOSIM_ENABLE_PYTHON)
+  pybind11_add_module(_cosmosim MODULE src/python_bindings.cpp)
+  target_link_libraries(_cosmosim PRIVATE cosmosim_all)
+  target_compile_features(_cosmosim PRIVATE cxx_std_20)
+
+  set_target_properties(_cosmosim PROPERTIES
+    OUTPUT_NAME "_cosmosim"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/python/cosmosim")
+
+  add_custom_target(cosmosim_python_package ALL
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/python/cosmosim"
+    COMMAND ${CMAKE_COMMAND} -E copy "${PROJECT_SOURCE_DIR}/python/cosmosim/__init__.py" "${CMAKE_BINARY_DIR}/python/cosmosim/__init__.py"
+    COMMAND ${CMAKE_COMMAND} -E copy "${PROJECT_SOURCE_DIR}/python/cosmosim/analysis.py" "${CMAKE_BINARY_DIR}/python/cosmosim/analysis.py"
+    DEPENDS _cosmosim)
+endif()
 
 if(COSMOSIM_ENABLE_TESTS)
   enable_testing()
@@ -527,6 +551,18 @@ if(COSMOSIM_ENABLE_TESTS)
   target_compile_definitions(test_validation_regression PRIVATE COSMOSIM_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
   add_test(NAME validation_regression COMMAND test_validation_regression)
   set_tests_properties(validation_regression PROPERTIES LABELS "validation;regression")
+
+  if(COSMOSIM_ENABLE_PYTHON)
+    add_test(
+      NAME python_bindings_smoke
+      COMMAND ${CMAKE_COMMAND} -E env PYTHONPATH=${CMAKE_BINARY_DIR}/python ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/python/test_bindings_smoke.py)
+
+    if(COSMOSIM_ENABLE_HDF5)
+      add_test(
+        NAME python_snapshot_diagnostic_integration
+        COMMAND ${CMAKE_COMMAND} -E env PYTHONPATH=${CMAKE_BINARY_DIR}/python ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/python/test_snapshot_diagnostic_integration.py)
+    endif()
+  endif()
 endif()
 
 if(COSMOSIM_ENABLE_BENCHMARKS)
@@ -637,6 +673,13 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
 
   add_executable(bench_validation_ladder bench/bench_validation_ladder.cpp)
   target_link_libraries(bench_validation_ladder PRIVATE cosmosim_all)
+
+  if(COSMOSIM_ENABLE_PYTHON AND COSMOSIM_ENABLE_HDF5)
+    add_custom_target(bench_python_snapshot_access
+      COMMAND ${CMAKE_COMMAND} -E env PYTHONPATH=${CMAKE_BINARY_DIR}/python ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/bench/python/bench_snapshot_access.py --particles=200000 --iterations=8
+      DEPENDS cosmosim_python_package
+      USES_TERMINAL)
+  endif()
 
 endif()
 
