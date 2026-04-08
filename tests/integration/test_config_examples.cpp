@@ -27,5 +27,14 @@ int main() {
   checkExample(source_dir / "configs/zoom_in.param.txt", cosmosim::core::SimulationMode::kZoomIn);
   checkExample(source_dir / "configs/isolated_galaxy.param.txt", cosmosim::core::SimulationMode::kIsolatedGalaxy);
   checkExample(source_dir / "configs/isolated_cluster.param.txt", cosmosim::core::SimulationMode::kIsolatedCluster);
+  checkExample(
+      source_dir / "configs/release/release_smoke_cosmo_cube.param.txt",
+      cosmosim::core::SimulationMode::kCosmoCube);
+  checkExample(
+      source_dir / "configs/release/release_smoke_zoom_in.param.txt",
+      cosmosim::core::SimulationMode::kZoomIn);
+  checkExample(
+      source_dir / "configs/release/release_smoke_isolated_galaxy.param.txt",
+      cosmosim::core::SimulationMode::kIsolatedGalaxy);
   return 0;
 }

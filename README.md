@@ -12,6 +12,7 @@ The flagship science target is physically credible zoom-in galaxy formation from
   - Snapshot/restart/provenance schema guide: [`docs/output_schema.md`](docs/output_schema.md)
   - Validation ladder and reference decks: [`docs/validation_plan.md`](docs/validation_plan.md)
   - Profiling and benchmark workflow: [`docs/profiling.md`](docs/profiling.md)
+  - Initial release package and checklist: [`RELEASE_NOTES.md`](RELEASE_NOTES.md)
 
 - **Developer architecture and workflow**
   - Architecture index and ownership map: [`docs/architecture/overview.md`](docs/architecture/overview.md)
