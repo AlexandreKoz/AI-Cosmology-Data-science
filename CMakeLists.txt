@@ -157,7 +157,9 @@ add_library(cosmosim_io STATIC
   src/io/ic_reader.cpp
   src/io/snapshot_hdf5.cpp
   src/io/restart_checkpoint.cpp)
-add_library(cosmosim_analysis STATIC src/analysis/analysis_module.cpp)
+add_library(cosmosim_analysis STATIC
+  src/analysis/analysis_module.cpp
+  src/analysis/diagnostics.cpp)
 add_library(cosmosim_parallel STATIC src/parallel/parallel_module.cpp)
 add_library(cosmosim_utils STATIC src/utils/utils_module.cpp)
 
@@ -308,6 +310,10 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_integration_simulation_state_pipeline PRIVATE cosmosim_all)
   add_test(NAME integration_simulation_state_pipeline COMMAND test_integration_simulation_state_pipeline)
 
+  add_executable(test_integration_analysis_bundle tests/integration/test_analysis_bundle_pipeline.cpp)
+  target_link_libraries(test_integration_analysis_bundle PRIVATE cosmosim_all)
+  add_test(NAME integration_analysis_bundle COMMAND test_integration_analysis_bundle)
+
 
   add_executable(test_integration_soa_species_pipeline tests/integration/test_soa_species_pipeline.cpp)
   target_link_libraries(test_integration_soa_species_pipeline PRIVATE cosmosim_core)
@@ -334,6 +340,10 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_integration_hierarchical_timestep_regression PRIVATE cosmosim_core)
   add_test(NAME integration_hierarchical_timestep_regression COMMAND test_integration_hierarchical_timestep_regression)
 
+
+  add_executable(test_unit_analysis_diagnostics tests/unit/test_analysis_diagnostics.cpp)
+  target_link_libraries(test_unit_analysis_diagnostics PRIVATE cosmosim_all)
+  add_test(NAME unit_analysis_diagnostics COMMAND test_unit_analysis_diagnostics)
 
   add_executable(test_unit_pm_solver tests/unit/test_pm_solver.cpp)
   target_link_libraries(test_unit_pm_solver PRIVATE cosmosim_gravity)
@@ -452,7 +462,9 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
 
 
   add_executable(bench_scheduler_overhead bench/bench_scheduler_overhead.cpp)
+  add_executable(bench_analysis_diagnostics_overhead bench/bench_analysis_diagnostics_overhead.cpp)
   target_link_libraries(bench_scheduler_overhead PRIVATE cosmosim_core)
+  target_link_libraries(bench_analysis_diagnostics_overhead PRIVATE cosmosim_all)
 
   add_executable(bench_mode_dispatch bench/bench_mode_dispatch.cpp)
   target_link_libraries(bench_mode_dispatch PRIVATE cosmosim_core)
