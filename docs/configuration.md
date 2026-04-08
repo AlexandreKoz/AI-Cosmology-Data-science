@@ -1,109 +1,127 @@
-# Configuration system (param-style workflow)
+# Configuration reference
 
-CosmoSim accepts a line-oriented `param.txt` style workflow and normalizes it into a typed validated configuration object before any rank-divergent execution.
+CosmoSim uses a GADGET/AREPO-style `param.txt` workflow and normalizes it into a typed, validated `SimulationConfig` before execution.
 
-## Workflow
+Authoritative structures: `include/cosmosim/core/config.hpp` and `src/core/config.cpp`.
 
-1. **Parse** user config (`key=value` or `key value`, comments with `#`, `;`, or `//`, optional sections).
-2. **Normalize** values into typed fields under these groups:
-   - `cosmology`
-   - `numerics`
-   - `physics`
-   - `output`
-   - `parallel`
-   - `units`
-   - `mode`
-3. **Validate** schema and semantic constraints (ranges, enum values, stable naming, mode-specific requirements).
-4. **Freeze** deterministic normalized output and FNV-1a provenance hash.
+## Parsing model
 
-## Reproducibility and provenance
+- Input supports `key=value` and `key value` forms.
+- Comments: `#`, `;`, `//`.
+- Sections (for example `[physics]`) prefix unqualified keys (`cooling_model` becomes `physics.cooling_model`).
+- Unknown keys fail by default; compatibility opt-out is explicit (`compatibility.allow_unknown_keys=true`).
 
-- Unknown keys fail by default.
-- Compatibility mode exists only when `compatibility.allow_unknown_keys=true` (or parse option override).
-- Deprecated keys are mapped with explicit warnings captured in provenance metadata.
-- Canonical normalized config can be emitted to `<run_directory>/normalized_config.param.txt`.
+## Reproducibility invariants
 
-## Stable names
+- Config is normalized to canonical text.
+- Canonical text is hashed (stable FNV-1a) for provenance.
+- Stable naming constraints apply to `output.output_stem`, `output.restart_stem`, and diagnostics/halo stems.
+- Mode policy is validated before runtime (`mode.mode`, boundary selection, zoom requirements).
 
-`output.output_stem` and `output.restart_stem` accept only `[a-zA-Z0-9_-]` to preserve stable naming across snapshots, restarts, tests, and benchmarks.
+## Key groups
 
+## `schema_version`
 
-## Simulation modes and boundaries
+- `schema_version` (int, required to be `1` in this build)
 
-`mode.mode` selects one of `cosmo_cube`, `zoom_in`, `isolated_galaxy`, or `isolated_cluster`.
+## `[mode]`
 
-Boundary behavior is explicit and normalized into the frozen config:
-- `mode.hydro_boundary`: `auto`, `periodic`, `open`, or `reflective`.
-- `mode.gravity_boundary`: `auto`, `periodic`, or `isolated_monopole`.
+- `mode` (`cosmo_cube`, `zoom_in`, `isolated_galaxy`, `isolated_cluster`)
+- `ic_file`
+- `zoom_high_res_region` (bool)
+- `zoom_region_file` (required when `zoom_high_res_region=true`)
+- `hydro_boundary` (`auto`, `periodic`, `open`, `reflective`)
+- `gravity_boundary` (`auto`, `periodic`, `isolated_monopole`)
 
-Mode-policy validation rules:
-- `cosmo_cube` and `zoom_in` require periodic hydro and periodic Poisson gravity.
-- `isolated_galaxy` and `isolated_cluster` require non-periodic gravity (`isolated_monopole`), with hydro boundary selected by policy or explicit override.
-- `zoom_in` with `mode.zoom_high_res_region=true` still requires `mode.zoom_region_file`.
+## `[cosmology]`
 
-For isolated gravity, the current boundary treatment is a monopole/Dirichlet-style reference potential ghost fill (`isolated_monopole`) documented in the mode policy and preserved in normalized snapshots for provenance.
+- `omega_matter`, `omega_lambda`, `omega_baryon`
+- `hubble_param`, `sigma8`, `scalar_index_ns`
+- `box_size` / `box_size_mpc_comoving`
 
+## `[numerics]`
 
-## Analysis and diagnostics keys
+- `time_begin_code`, `time_end_code`
+- `max_global_steps`, `hierarchical_max_rung`, `amr_max_level`
+- `gravity_softening` / `gravity_softening_kpc_comoving`
+- `gravity_solver`, `hydro_solver`
 
-The `analysis` section controls standard in-situ diagnostics with explicit cadence and retention:
-- `enable_diagnostics` (`true`/`false`)
-- `run_health_interval_steps` (> 0): cadence for cheap health counters.
-- `science_light_interval_steps` (> 0): cadence for light science products (SF history, angular momentum budgets, quicklook slice/projection).
-- `science_heavy_interval_steps` (> 0): cadence for heavy products (currently power spectrum).
-- `retention_bundle_count` (>= 1): maximum number of diagnostics bundles retained per run output directory.
-- `power_spectrum_mesh_n` (>= 4) and `power_spectrum_bin_count` (>= 1): periodic density-grid and shell binning controls.
-- `sf_history_bin_count` (>= 1): star-formation history bin count in scale-factor space.
-- `quicklook_grid_n` (>= 4): XY slice/projection quicklook resolution.
-- `diagnostics_stem` (`[a-zA-Z0-9_-]`): stable diagnostics bundle filename stem.
+## `[physics]`
 
-Diagnostics bundles record explicit frame and unit conventions (`comoving`, `code`), and write to `<output.output_directory>/<output.run_name>/diagnostics` with stable step-based names.
+Core toggles:
 
-### Halo/subhalo/merger-tree planning keys (v1 scaffold)
+- `enable_cooling`, `enable_star_formation`, `enable_feedback`, `enable_stellar_evolution`
 
-The halo workflow is intentionally explicit and conservative in v1:
-- `enable_halo_workflow` (`true`/`false`): enables halo catalog + merger-tree plan products.
-- `halo_on_the_fly` (`true`/`false`): ownership mode flag for in-situ vs post-processing orchestration.
-- `halo_catalog_stem` (`[a-zA-Z0-9_-]`): stable halo catalog filename stem.
-- `merger_tree_stem` (`[a-zA-Z0-9_-]`): stable merger-tree plan filename stem.
-- `halo_fof_linking_length_factor` in `(0, 1]`: FOF linking length as a multiple of mean inter-particle spacing.
-- `halo_fof_min_group_size` (>= 2): minimum group size retained in catalog output.
-- `halo_include_gas`, `halo_include_stars`, `halo_include_black_holes`: species-inclusion toggles; tracers are always excluded.
+Cooling/heating:
 
-Current v1 notes:
-- FOF is an O(N²) baseline for correctness and interface stabilization, not final scaling behavior.
-- Subhalo and merger-tree products are explicit planning scaffolds with schema and provenance, not fully validated production pipelines.
+- `reionization_model`, `uv_background_model`, `self_shielding_model`
+- `cooling_model`, `metal_line_table_path`, `temperature_floor_k`
 
-## Cooling/heating keys
+Star formation:
 
-The `physics` section also supports cooling/heating normalization keys:
-- `cooling_model` (`primordial` or `primordial_plus_metal_table`)
-- `uv_background_model` (`hm12`, `fg20`, `none`)
-- `self_shielding_model` (`none`, `rahmati13_like`)
-- `metal_line_table_path` (optional table asset path)
-- `temperature_floor_k` (> 0)
+- `sf_density_threshold_code`, `sf_temperature_threshold_k`
+- `sf_min_converging_flow_rate_code`, `sf_epsilon_ff`
+- `sf_min_star_particle_mass_code`, `sf_stochastic_spawning`, `sf_random_seed`
 
-## Stellar feedback keys
+Stellar feedback:
 
-Feedback policy is explicit and auditable through typed keys in the `physics` section:
-- `fb_mode`: `thermal`, `kinetic`, `momentum`, or `thermal_kinetic_momentum`
-- `fb_variant`: `none`, `delayed_cooling`, or `stochastic`
-- `fb_use_returned_mass_budget`: if true, use returned-mass budget; if false, use birth-mass proxy budget
-- `fb_epsilon_thermal`, `fb_epsilon_kinetic`, `fb_epsilon_momentum` (all >= 0)
-- `fb_sn_energy_erg_per_mass_code` (> 0)
-- `fb_momentum_code_per_mass_code` (>= 0)
-- `fb_neighbor_count` (> 0)
-- `fb_delayed_cooling_time_code` (non-negative policy field, recorded in normalized config)
-- `fb_stochastic_event_probability` in `(0, 1]`
-- `fb_random_seed` (deterministic stochastic-variant seed)
+- `fb_mode` (`thermal`, `kinetic`, `momentum`, `thermal_kinetic_momentum`)
+- `fb_variant` (`none`, `delayed_cooling`, `stochastic`)
+- `fb_use_returned_mass_budget`
+- `fb_epsilon_thermal`, `fb_epsilon_kinetic`, `fb_epsilon_momentum`
+- `fb_sn_energy_erg_per_mass_code`, `fb_momentum_code_per_mass_code`
+- `fb_neighbor_count`, `fb_delayed_cooling_time_code`
+- `fb_stochastic_event_probability`, `fb_random_seed`
 
-## Tracer keys
+Stellar evolution + AGN:
 
-Tracer support is optional and gated by both build feature and config:
-- Build-time: `COSMOSIM_ENABLE_TRACERS=ON`
-- Runtime: `physics.enable_tracers=true`
+- `stellar_evolution_table_path`, `stellar_evolution_hubble_time_years`
+- `enable_black_hole_agn`
+- `bh_seed_halo_mass_threshold_code`, `bh_seed_mass_code`, `bh_seed_max_per_cell`
+- `bh_alpha_bondi`, `bh_use_eddington_cap`, `bh_epsilon_r`, `bh_epsilon_f`
+- `bh_feedback_coupling_efficiency`, `bh_duty_cycle_active_edd_ratio_threshold`
+- `bh_proton_mass_si`, `bh_thomson_cross_section_si`, `bh_newton_g_si`, `bh_speed_of_light_si`
 
-Typed keys:
-- `enable_tracers` (`true`/`false`)
-- `tracer_track_mass` (`true`/`false`): if true, tracer particle mass follows host-cell mass with fixed `mass_fraction_of_host`.
-- `tracer_min_host_mass_code` (>= 0): conservative guard to skip updates for nearly empty hosts.
+Tracers:
+
+- `enable_tracers`, `tracer_track_mass`, `tracer_min_host_mass_code`
+
+## `[output]`
+
+- `run_name`, `output_directory`
+- `output_stem`, `restart_stem` (stable character set only)
+- `snapshot_interval_steps`, `write_restarts`
+
+## `[analysis]`
+
+- `enable_diagnostics`, `enable_halo_workflow`, `halo_on_the_fly`
+- `run_health_interval_steps`, `science_light_interval_steps`, `science_heavy_interval_steps`
+- `retention_bundle_count`
+- `power_spectrum_mesh_n`, `power_spectrum_bin_count`, `sf_history_bin_count`, `quicklook_grid_n`
+- `diagnostics_stem`, `halo_catalog_stem`, `merger_tree_stem`
+- `halo_fof_linking_length_factor`, `halo_fof_min_group_size`
+- `halo_include_gas`, `halo_include_stars`, `halo_include_black_holes`
+
+## `[parallel]`
+
+- `mpi_ranks_expected`, `omp_threads`, `gpu_devices`
+- `deterministic_reduction`
+
+## `[units]`
+
+- `length_unit`, `mass_unit`, `velocity_unit`, `coordinate_frame`
+
+## `[compatibility]`
+
+- `allow_unknown_keys`
+
+## Example configs
+
+Canonical examples are in `configs/`:
+
+- `minimal_cosmosim.param.txt`
+- `cosmo_cube.param.txt`
+- `zoom_in.param.txt`
+- `isolated_galaxy.param.txt`
+- `isolated_cluster.param.txt`
+- `cooling_relaxation.param.txt`
