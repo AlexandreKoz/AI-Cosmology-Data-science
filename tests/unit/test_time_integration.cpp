@@ -32,10 +32,12 @@ void testKickDriftKickOrdering() {
   orchestrator.executeSingleStep(state, integrator_state, active_set, nullptr, nullptr);
 
   const auto expected = cosmosim::core::StageScheduler::kickDriftKickOrder();
+  assert(cosmosim::core::isCanonicalIntegrationStageOrder(expected));
   assert(recorder.observed_stages.size() == expected.size());
   for (std::size_t i = 0; i < expected.size(); ++i) {
     assert(recorder.observed_stages[i] == expected[i]);
   }
+  assert(cosmosim::core::isCanonicalIntegrationStageOrder(recorder.observed_stages));
 }
 
 void testCosmologyHelpers() {

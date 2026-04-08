@@ -13,6 +13,7 @@
 #include "cosmosim/core/cosmology.hpp"
 #include "cosmosim/core/provenance.hpp"
 #include "cosmosim/core/profiling.hpp"
+#include "cosmosim/core/reference_workflow.hpp"
 #include "cosmosim/core/soa_storage.hpp"
 #include "cosmosim/core/simulation_state.hpp"
 #include "cosmosim/core/simulation_mode.hpp"

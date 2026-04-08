@@ -103,6 +103,15 @@ std::vector<IntegrationStage> StageScheduler::schedule(
 
 std::span<const IntegrationStage> StageScheduler::kickDriftKickOrder() { return k_kick_drift_kick_order; }
 
+bool isCanonicalIntegrationStageOrder(std::span<const IntegrationStage> ordered_stages) {
+  return ordered_stages.size() == k_kick_drift_kick_order.size() &&
+         std::equal(
+             ordered_stages.begin(),
+             ordered_stages.end(),
+             k_kick_drift_kick_order.begin(),
+             k_kick_drift_kick_order.end());
+}
+
 StepOrchestrator::StepOrchestrator(StageScheduler scheduler) : m_scheduler(std::move(scheduler)) {}
 
 void StepOrchestrator::registerCallback(IntegrationCallback& callback) { m_callbacks.push_back(&callback); }
@@ -144,6 +153,10 @@ void StepOrchestrator::executeSingleStep(
   };
 
   const auto ordered_stages = m_scheduler.schedule(integrator_state, active_set);
+  if (!isCanonicalIntegrationStageOrder(ordered_stages)) {
+    throw std::runtime_error("stage scheduler order deviates from canonical kick-drift-kick contract");
+  }
+
   for (const auto stage : ordered_stages) {
     context.stage = stage;
     const std::string stage_name = "stage." + std::string(integrationStageName(stage));
