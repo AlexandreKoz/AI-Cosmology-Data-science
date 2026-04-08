@@ -9,6 +9,8 @@
 #include <string_view>
 #include <vector>
 
+#include "cosmosim/core/execution_policy.hpp"
+
 namespace cosmosim::gravity {
 
 enum class PmAssignmentScheme {
@@ -25,12 +27,19 @@ struct PmGridShape {
   [[nodiscard]] bool isValid() const;
 };
 
+enum class PmDataResidencyPolicy {
+  kHostOnly,
+  kPreferDevice,
+};
+
 struct PmSolveOptions {
   double box_size_mpc_comoving = 0.0;
   double scale_factor = 1.0;
   double gravitational_constant_code = 1.0;
   PmAssignmentScheme assignment_scheme = PmAssignmentScheme::kCic;
   bool enable_window_deconvolution = false;
+  core::ExecutionPolicy execution_policy = core::ExecutionPolicy::kHostSerial;
+  PmDataResidencyPolicy data_residency = PmDataResidencyPolicy::kHostOnly;
   // Optional TreePM long-range Gaussian split scale. <=0 disables filtering.
   double tree_pm_split_scale_comoving = 0.0;
 };
@@ -43,6 +52,9 @@ struct PmProfileEvent {
   double gradient_ms = 0.0;
   double fft_inverse_ms = 0.0;
   double interpolate_ms = 0.0;
+  double transfer_h2d_ms = 0.0;
+  double transfer_d2h_ms = 0.0;
+  double device_kernel_ms = 0.0;
 };
 
 class PmProfiler {
@@ -134,6 +146,7 @@ class PmSolver {
       PmProfileEvent* profile = nullptr);
 
   [[nodiscard]] static bool fftBackendAvailable();
+  [[nodiscard]] static bool cudaBackendAvailable();
   [[nodiscard]] static std::string fftBackendName();
 
  private:
