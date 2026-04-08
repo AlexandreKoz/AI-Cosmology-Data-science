@@ -59,6 +59,21 @@ The `analysis` section controls standard in-situ diagnostics with explicit caden
 
 Diagnostics bundles record explicit frame and unit conventions (`comoving`, `code`), and write to `<output.output_directory>/<output.run_name>/diagnostics` with stable step-based names.
 
+### Halo/subhalo/merger-tree planning keys (v1 scaffold)
+
+The halo workflow is intentionally explicit and conservative in v1:
+- `enable_halo_workflow` (`true`/`false`): enables halo catalog + merger-tree plan products.
+- `halo_on_the_fly` (`true`/`false`): ownership mode flag for in-situ vs post-processing orchestration.
+- `halo_catalog_stem` (`[a-zA-Z0-9_-]`): stable halo catalog filename stem.
+- `merger_tree_stem` (`[a-zA-Z0-9_-]`): stable merger-tree plan filename stem.
+- `halo_fof_linking_length_factor` in `(0, 1]`: FOF linking length as a multiple of mean inter-particle spacing.
+- `halo_fof_min_group_size` (>= 2): minimum group size retained in catalog output.
+- `halo_include_gas`, `halo_include_stars`, `halo_include_black_holes`: species-inclusion toggles; tracers are always excluded.
+
+Current v1 notes:
+- FOF is an O(N²) baseline for correctness and interface stabilization, not final scaling behavior.
+- Subhalo and merger-tree products are explicit planning scaffolds with schema and provenance, not fully validated production pipelines.
+
 ## Cooling/heating keys
 
 The `physics` section also supports cooling/heating normalization keys:

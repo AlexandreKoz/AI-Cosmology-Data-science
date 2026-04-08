@@ -280,6 +280,13 @@ void validateConfig(const SimulationConfig& config) {
       config.analysis.quicklook_grid_n < 4) {
     throw ConfigError("analysis mesh/bin settings must be within conservative minimum bounds");
   }
+  if (config.analysis.halo_fof_linking_length_factor <= 0.0 ||
+      config.analysis.halo_fof_linking_length_factor > 1.0) {
+    throw ConfigError("analysis.halo_fof_linking_length_factor must be in (0, 1]");
+  }
+  if (config.analysis.halo_fof_min_group_size < 2) {
+    throw ConfigError("analysis.halo_fof_min_group_size must be >= 2");
+  }
   if (config.cosmology.omega_matter <= 0.0 || config.cosmology.omega_lambda < 0.0) {
     throw ConfigError("cosmology requires omega_matter > 0 and omega_lambda >= 0");
   }
@@ -464,6 +471,9 @@ void validateConfig(const SimulationConfig& config) {
   stream << "\n[analysis]\n";
   stream << "enable_diagnostics = " << (frozen.config.analysis.enable_diagnostics ? "true" : "false")
          << '\n';
+  stream << "enable_halo_workflow = " << (frozen.config.analysis.enable_halo_workflow ? "true" : "false")
+         << '\n';
+  stream << "halo_on_the_fly = " << (frozen.config.analysis.halo_on_the_fly ? "true" : "false") << '\n';
   stream << "run_health_interval_steps = " << frozen.config.analysis.run_health_interval_steps << '\n';
   stream << "science_light_interval_steps = " << frozen.config.analysis.science_light_interval_steps << '\n';
   stream << "science_heavy_interval_steps = " << frozen.config.analysis.science_heavy_interval_steps << '\n';
@@ -473,6 +483,14 @@ void validateConfig(const SimulationConfig& config) {
   stream << "sf_history_bin_count = " << frozen.config.analysis.sf_history_bin_count << '\n';
   stream << "quicklook_grid_n = " << frozen.config.analysis.quicklook_grid_n << '\n';
   stream << "diagnostics_stem = " << frozen.config.analysis.diagnostics_stem << '\n';
+  stream << "halo_catalog_stem = " << frozen.config.analysis.halo_catalog_stem << '\n';
+  stream << "merger_tree_stem = " << frozen.config.analysis.merger_tree_stem << '\n';
+  stream << "halo_fof_linking_length_factor = " << frozen.config.analysis.halo_fof_linking_length_factor << '\n';
+  stream << "halo_fof_min_group_size = " << frozen.config.analysis.halo_fof_min_group_size << '\n';
+  stream << "halo_include_gas = " << (frozen.config.analysis.halo_include_gas ? "true" : "false") << '\n';
+  stream << "halo_include_stars = " << (frozen.config.analysis.halo_include_stars ? "true" : "false") << '\n';
+  stream << "halo_include_black_holes = " << (frozen.config.analysis.halo_include_black_holes ? "true" : "false")
+         << '\n';
   stream << "\n[compatibility]\n";
   stream << "allow_unknown_keys = "
          << (frozen.config.compatibility.allow_unknown_keys ? "true" : "false") << '\n';
@@ -746,6 +764,12 @@ void validateConfig(const SimulationConfig& config) {
   frozen.config.analysis.enable_diagnostics = parseBool(
       requireString(entries, consumed, "analysis.enable_diagnostics", "true"),
       "analysis.enable_diagnostics");
+  frozen.config.analysis.enable_halo_workflow = parseBool(
+      requireString(entries, consumed, "analysis.enable_halo_workflow", "false"),
+      "analysis.enable_halo_workflow");
+  frozen.config.analysis.halo_on_the_fly = parseBool(
+      requireString(entries, consumed, "analysis.halo_on_the_fly", "false"),
+      "analysis.halo_on_the_fly");
   frozen.config.analysis.run_health_interval_steps = static_cast<int>(parseNumber<long>(
       requireString(entries, consumed, "analysis.run_health_interval_steps", "1"),
       "analysis.run_health_interval_steps"));
@@ -773,6 +797,31 @@ void validateConfig(const SimulationConfig& config) {
   frozen.config.analysis.diagnostics_stem = sanitizeStem(
       requireString(entries, consumed, "analysis.diagnostics_stem", frozen.config.analysis.diagnostics_stem),
       "analysis.diagnostics_stem");
+  frozen.config.analysis.halo_catalog_stem = sanitizeStem(
+      requireString(entries, consumed, "analysis.halo_catalog_stem", frozen.config.analysis.halo_catalog_stem),
+      "analysis.halo_catalog_stem");
+  frozen.config.analysis.merger_tree_stem = sanitizeStem(
+      requireString(entries, consumed, "analysis.merger_tree_stem", frozen.config.analysis.merger_tree_stem),
+      "analysis.merger_tree_stem");
+  frozen.config.analysis.halo_fof_linking_length_factor = parseFloating(
+      requireString(
+          entries,
+          consumed,
+          "analysis.halo_fof_linking_length_factor",
+          "0.2"),
+      "analysis.halo_fof_linking_length_factor");
+  frozen.config.analysis.halo_fof_min_group_size = static_cast<int>(parseNumber<long>(
+      requireString(entries, consumed, "analysis.halo_fof_min_group_size", "16"),
+      "analysis.halo_fof_min_group_size"));
+  frozen.config.analysis.halo_include_gas = parseBool(
+      requireString(entries, consumed, "analysis.halo_include_gas", "true"),
+      "analysis.halo_include_gas");
+  frozen.config.analysis.halo_include_stars = parseBool(
+      requireString(entries, consumed, "analysis.halo_include_stars", "true"),
+      "analysis.halo_include_stars");
+  frozen.config.analysis.halo_include_black_holes = parseBool(
+      requireString(entries, consumed, "analysis.halo_include_black_holes", "true"),
+      "analysis.halo_include_black_holes");
 
   const bool compatible_by_file = parseBool(
       requireString(entries, consumed, "compatibility.allow_unknown_keys", "false"),

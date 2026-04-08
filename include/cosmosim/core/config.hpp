@@ -99,6 +99,8 @@ struct OutputConfig {
 
 struct AnalysisConfig {
   bool enable_diagnostics = true;
+  bool enable_halo_workflow = false;
+  bool halo_on_the_fly = false;
   int run_health_interval_steps = 1;
   int science_light_interval_steps = 8;
   int science_heavy_interval_steps = 64;
@@ -108,6 +110,13 @@ struct AnalysisConfig {
   int sf_history_bin_count = 16;
   int quicklook_grid_n = 32;
   std::string diagnostics_stem = "diagnostics";
+  std::string halo_catalog_stem = "halo_catalog";
+  std::string merger_tree_stem = "merger_tree_plan";
+  double halo_fof_linking_length_factor = 0.2;
+  int halo_fof_min_group_size = 16;
+  bool halo_include_gas = true;
+  bool halo_include_stars = true;
+  bool halo_include_black_holes = true;
 };
 
 struct ParallelConfig {
