@@ -229,6 +229,10 @@ void TracerParticleSidecar::resize(std::size_t count) {
   particle_index.resize(count);
   parent_particle_id.resize(count);
   injection_step.resize(count);
+  host_cell_index.resize(count);
+  mass_fraction_of_host.resize(count);
+  last_host_mass_code.resize(count);
+  cumulative_exchanged_mass_code.resize(count);
 }
 
 // Report tracer sidecar row count.
@@ -237,7 +241,10 @@ std::size_t TracerParticleSidecar::size() const noexcept { return particle_index
 // Validate tracer metadata lane consistency.
 bool TracerParticleSidecar::isConsistent() const noexcept {
   const std::size_t expected = particle_index.size();
-  return parent_particle_id.size() == expected && injection_step.size() == expected;
+  return parent_particle_id.size() == expected && injection_step.size() == expected &&
+         host_cell_index.size() == expected && mass_fraction_of_host.size() == expected &&
+         last_host_mass_code.size() == expected &&
+         cumulative_exchanged_mass_code.size() == expected;
 }
 
 // Resize AMR patch descriptor lanes while preserving contiguous range contract.
@@ -542,6 +549,12 @@ bool SimulationState::validateOwnershipInvariants() const {
   for (std::size_t i = 0; i < tracers.size(); ++i) {
     const auto index = tracers.particle_index[i];
     if (index >= particles.size()) {
+      return false;
+    }
+    if (tracers.host_cell_index[i] >= cells.size() && cells.size() > 0) {
+      return false;
+    }
+    if (tracers.mass_fraction_of_host[i] < 0.0 || tracers.last_host_mass_code[i] < 0.0) {
       return false;
     }
     if (particle_sidecar.species_tag[index] != static_cast<std::uint32_t>(ParticleSpecies::kTracer)) {

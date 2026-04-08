@@ -44,8 +44,16 @@ centralized in `GadgetArepoSchemaMap` and are not scattered through solver modul
 
 - Current writer serializes particles by species mapping:
   - gas -> PartType0
-  - dark matter/others -> PartType1
+  - dark matter -> PartType1
+  - tracers -> PartType3
   - stars -> PartType4
+  - black holes -> PartType5
+- Tracer-sidecar provenance fields are stored in `/PartType3` when present:
+  - `TracerParentParticleID`
+  - `TracerInjectionStep`
+  - `TracerHostCellIndex`
+  - `TracerMassFractionOfHost`
+  - `TracerCumulativeExchangedMassCode`
 - `MassTable` is currently written as zeros and per-particle masses are emitted.
 - Parallel HDF5 is not yet implemented, but APIs are structured to enable backend extension.
 

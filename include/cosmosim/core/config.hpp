@@ -82,6 +82,9 @@ struct PhysicsConfig {
   double bh_thomson_cross_section_si = 6.6524587321e-29;
   double bh_newton_g_si = 6.67430e-11;
   double bh_speed_of_light_si = 2.99792458e8;
+  bool enable_tracers = false;
+  bool tracer_track_mass = true;
+  double tracer_min_host_mass_code = 0.0;
 };
 
 struct OutputConfig {

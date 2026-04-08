@@ -23,7 +23,10 @@ namespace {
 }
 
 void fillMixedSpeciesState(cosmosim::core::SimulationState& state) {
-  state.resizeParticles(6);
+  state.resizeParticles(7);
+  state.resizeCells(2);
+  state.cells.mass_code[0] = 10.0;
+  state.cells.mass_code[1] = 15.0;
   for (std::size_t i = 0; i < state.particles.size(); ++i) {
     state.particles.position_x_comoving[i] = static_cast<double>(i) * 0.1;
     state.particles.position_y_comoving[i] = static_cast<double>(i) * 0.2;
@@ -42,9 +45,22 @@ void fillMixedSpeciesState(cosmosim::core::SimulationState& state) {
   state.particle_sidecar.species_tag[3] = static_cast<std::uint32_t>(cosmosim::core::ParticleSpecies::kGas);
   state.particle_sidecar.species_tag[4] = static_cast<std::uint32_t>(cosmosim::core::ParticleSpecies::kStar);
   state.particle_sidecar.species_tag[5] = static_cast<std::uint32_t>(cosmosim::core::ParticleSpecies::kStar);
+  state.particle_sidecar.species_tag[6] = static_cast<std::uint32_t>(cosmosim::core::ParticleSpecies::kTracer);
+  state.tracers.resize(1);
+  state.tracers.particle_index[0] = 6;
+  state.tracers.parent_particle_id[0] = 1005;
+  state.tracers.injection_step[0] = 11;
+  state.tracers.host_cell_index[0] = 1;
+  state.tracers.mass_fraction_of_host[0] = 0.25;
+  state.tracers.last_host_mass_code[0] = state.cells.mass_code[1];
+  state.tracers.cumulative_exchanged_mass_code[0] = 0.1;
 
   state.metadata.scale_factor = 0.5;
   state.metadata.run_name = "snapshot_roundtrip";
+  state.species.count_by_species[static_cast<std::size_t>(cosmosim::core::ParticleSpecies::kDarkMatter)] = 2;
+  state.species.count_by_species[static_cast<std::size_t>(cosmosim::core::ParticleSpecies::kGas)] = 2;
+  state.species.count_by_species[static_cast<std::size_t>(cosmosim::core::ParticleSpecies::kStar)] = 2;
+  state.species.count_by_species[static_cast<std::size_t>(cosmosim::core::ParticleSpecies::kTracer)] = 1;
   state.rebuildSpeciesIndex();
 }
 
@@ -87,7 +103,14 @@ void testRoundtripMixedSpeciesSnapshot() {
   assert(roundtrip.provenance.enabled_features == payload.provenance.enabled_features);
   assert(containsString(roundtrip.report.present_aliases, "/PartType0/Coordinates=Coordinates"));
   assert(containsString(roundtrip.report.present_aliases, "/PartType1/Coordinates=Coordinates"));
+  assert(containsString(roundtrip.report.present_aliases, "/PartType3/Coordinates=Coordinates"));
   assert(containsString(roundtrip.report.present_aliases, "/PartType4/Coordinates=Coordinates"));
+  assert(roundtrip.state.tracers.size() == 1);
+  assert(roundtrip.state.tracers.parent_particle_id[0] == 1005);
+  assert(roundtrip.state.tracers.injection_step[0] == 11);
+  assert(roundtrip.state.tracers.host_cell_index[0] == 1);
+  assert(std::abs(roundtrip.state.tracers.mass_fraction_of_host[0] - 0.25) < 1.0e-12);
+  assert(std::abs(roundtrip.state.tracers.cumulative_exchanged_mass_code[0] - 0.1) < 1.0e-12);
 
   double checksum_in = 0.0;
   double checksum_out = 0.0;

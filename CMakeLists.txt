@@ -20,6 +20,7 @@ option(COSMOSIM_ENABLE_HDF5 "Enable HDF5 I/O backend" OFF)
 option(COSMOSIM_ENABLE_FFTW "Enable FFTW backend" OFF)
 option(COSMOSIM_ENABLE_CUDA "Enable CUDA/cuFFT backend" OFF)
 option(COSMOSIM_ENABLE_PYTHON "Enable Python tooling integration" OFF)
+option(COSMOSIM_ENABLE_TRACERS "Enable tracer update module" OFF)
 option(COSMOSIM_ENABLE_TESTS "Build unit and integration tests" ON)
 option(COSMOSIM_ENABLE_BENCHMARKS "Build benchmark/profiling hooks" ON)
 option(COSMOSIM_ENABLE_LTO "Enable interprocedural optimization (LTO)" OFF)
@@ -147,7 +148,8 @@ add_library(cosmosim_physics STATIC
   src/physics/black_hole_agn.cpp
   src/physics/star_formation.cpp
   src/physics/stellar_evolution.cpp
-  src/physics/stellar_feedback.cpp)
+  src/physics/stellar_feedback.cpp
+  src/physics/tracer_support.cpp)
 add_library(cosmosim_io STATIC
   src/io/io_module.cpp
   src/io/ic_reader.cpp
@@ -278,6 +280,9 @@ if(COSMOSIM_ENABLE_TESTS)
   add_executable(test_unit_stellar_feedback tests/unit/test_stellar_feedback.cpp)
   target_link_libraries(test_unit_stellar_feedback PRIVATE cosmosim_all)
   add_test(NAME unit_stellar_feedback COMMAND test_unit_stellar_feedback)
+  add_executable(test_unit_tracer_support tests/unit/test_tracer_support.cpp)
+  target_link_libraries(test_unit_tracer_support PRIVATE cosmosim_all)
+  add_test(NAME unit_tracer_support COMMAND test_unit_tracer_support)
 
   add_executable(test_integration_cooling_relaxation tests/integration/test_cooling_relaxation.cpp)
   target_link_libraries(test_integration_cooling_relaxation PRIVATE cosmosim_all)
@@ -383,6 +388,9 @@ if(COSMOSIM_ENABLE_TESTS)
   add_executable(test_integration_snapshot_hdf5_roundtrip tests/integration/test_snapshot_hdf5_roundtrip.cpp)
   target_link_libraries(test_integration_snapshot_hdf5_roundtrip PRIVATE cosmosim_all)
   add_test(NAME integration_snapshot_hdf5_roundtrip COMMAND test_integration_snapshot_hdf5_roundtrip)
+  add_executable(test_integration_tracer_advection tests/integration/test_tracer_advection.cpp)
+  target_link_libraries(test_integration_tracer_advection PRIVATE cosmosim_all)
+  add_test(NAME integration_tracer_advection COMMAND test_integration_tracer_advection)
 
 
   add_executable(test_integration_restart_checkpoint_roundtrip tests/integration/test_restart_checkpoint_roundtrip.cpp)
@@ -475,6 +483,8 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
   target_link_libraries(bench_black_hole_agn_sparse_update PRIVATE cosmosim_all)
   add_executable(bench_stellar_feedback_deposition bench/bench_stellar_feedback_deposition.cpp)
   target_link_libraries(bench_stellar_feedback_deposition PRIVATE cosmosim_all)
+  add_executable(bench_tracer_update bench/bench_tracer_update.cpp)
+  target_link_libraries(bench_tracer_update PRIVATE cosmosim_all)
 
 endif()
 

@@ -330,6 +330,9 @@ void validateConfig(const SimulationConfig& config) {
       config.physics.bh_newton_g_si <= 0.0 || config.physics.bh_speed_of_light_si <= 0.0) {
     throw ConfigError("physics BH constants must be > 0");
   }
+  if (config.physics.tracer_min_host_mass_code < 0.0) {
+    throw ConfigError("physics.tracer_min_host_mass_code must be >= 0");
+  }
   const ModePolicy policy = buildModePolicy(config.mode);
   validateModePolicy(config, policy);
 }
@@ -428,6 +431,9 @@ void validateConfig(const SimulationConfig& config) {
   stream << "bh_thomson_cross_section_si = " << frozen.config.physics.bh_thomson_cross_section_si << '\n';
   stream << "bh_newton_g_si = " << frozen.config.physics.bh_newton_g_si << '\n';
   stream << "bh_speed_of_light_si = " << frozen.config.physics.bh_speed_of_light_si << '\n';
+  stream << "enable_tracers = " << (frozen.config.physics.enable_tracers ? "true" : "false") << '\n';
+  stream << "tracer_track_mass = " << (frozen.config.physics.tracer_track_mass ? "true" : "false") << '\n';
+  stream << "tracer_min_host_mass_code = " << frozen.config.physics.tracer_min_host_mass_code << '\n';
   stream << "\n[output]\n";
   stream << "run_name = " << frozen.config.output.run_name << '\n';
   stream << "output_directory = " << frozen.config.output.output_directory << '\n';
@@ -674,6 +680,15 @@ void validateConfig(const SimulationConfig& config) {
   frozen.config.physics.bh_speed_of_light_si = parseFloating(
       requireString(entries, consumed, "physics.bh_speed_of_light_si", "2.99792458e8"),
       "physics.bh_speed_of_light_si");
+  frozen.config.physics.enable_tracers = parseBool(
+      requireString(entries, consumed, "physics.enable_tracers", "false"),
+      "physics.enable_tracers");
+  frozen.config.physics.tracer_track_mass = parseBool(
+      requireString(entries, consumed, "physics.tracer_track_mass", "true"),
+      "physics.tracer_track_mass");
+  frozen.config.physics.tracer_min_host_mass_code = parseFloating(
+      requireString(entries, consumed, "physics.tracer_min_host_mass_code", "0.0"),
+      "physics.tracer_min_host_mass_code");
 
   frozen.config.output.run_name =
       requireString(entries, consumed, "output.run_name", frozen.config.output.run_name);

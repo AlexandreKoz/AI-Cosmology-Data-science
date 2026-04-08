@@ -65,3 +65,14 @@ Feedback policy is explicit and auditable through typed keys in the `physics` se
 - `fb_delayed_cooling_time_code` (non-negative policy field, recorded in normalized config)
 - `fb_stochastic_event_probability` in `(0, 1]`
 - `fb_random_seed` (deterministic stochastic-variant seed)
+
+## Tracer keys
+
+Tracer support is optional and gated by both build feature and config:
+- Build-time: `COSMOSIM_ENABLE_TRACERS=ON`
+- Runtime: `physics.enable_tracers=true`
+
+Typed keys:
+- `enable_tracers` (`true`/`false`)
+- `tracer_track_mass` (`true`/`false`): if true, tracer particle mass follows host-cell mass with fixed `mass_fraction_of_host`.
+- `tracer_min_host_mass_code` (>= 0): conservative guard to skip updates for nearly empty hosts.

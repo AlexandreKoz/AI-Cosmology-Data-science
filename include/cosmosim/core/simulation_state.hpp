@@ -128,6 +128,10 @@ struct TracerParticleSidecar {
   AlignedVector<std::uint32_t> particle_index;
   AlignedVector<std::uint64_t> parent_particle_id;
   AlignedVector<std::uint64_t> injection_step;
+  AlignedVector<std::uint32_t> host_cell_index;
+  AlignedVector<double> mass_fraction_of_host;
+  AlignedVector<double> last_host_mass_code;
+  AlignedVector<double> cumulative_exchanged_mass_code;
 
   void resize(std::size_t count);
   [[nodiscard]] std::size_t size() const noexcept;

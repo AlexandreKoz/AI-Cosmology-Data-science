@@ -370,6 +370,15 @@ void writeStateGroup(hid_t root, const core::SimulationState& state) {
   writeDataset1d(tracer_group.get(), "particle_index", H5T_STD_U32LE, H5T_NATIVE_UINT32, state.tracers.particle_index);
   writeDataset1d(tracer_group.get(), "parent_particle_id", H5T_STD_U64LE, H5T_NATIVE_UINT64, state.tracers.parent_particle_id);
   writeDataset1d(tracer_group.get(), "injection_step", H5T_STD_U64LE, H5T_NATIVE_UINT64, state.tracers.injection_step);
+  writeDataset1d(tracer_group.get(), "host_cell_index", H5T_STD_U32LE, H5T_NATIVE_UINT32, state.tracers.host_cell_index);
+  writeDataset1d(tracer_group.get(), "mass_fraction_of_host", H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE, state.tracers.mass_fraction_of_host);
+  writeDataset1d(tracer_group.get(), "last_host_mass_code", H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE, state.tracers.last_host_mass_code);
+  writeDataset1d(
+      tracer_group.get(),
+      "cumulative_exchanged_mass_code",
+      H5T_IEEE_F64LE,
+      H5T_NATIVE_DOUBLE,
+      state.tracers.cumulative_exchanged_mass_code);
 
   writeStringDataset(state_group.get(), "state_metadata", state.metadata.serialize());
 
@@ -477,6 +486,14 @@ void readStateGroup(hid_t root, core::SimulationState& state) {
       readDataset1dAligned<std::uint64_t>(tracer_group.get(), "parent_particle_id", H5T_NATIVE_UINT64);
   state.tracers.injection_step =
       readDataset1dAligned<std::uint64_t>(tracer_group.get(), "injection_step", H5T_NATIVE_UINT64);
+  state.tracers.host_cell_index =
+      readDataset1dAligned<std::uint32_t>(tracer_group.get(), "host_cell_index", H5T_NATIVE_UINT32);
+  state.tracers.mass_fraction_of_host =
+      readDataset1dAligned<double>(tracer_group.get(), "mass_fraction_of_host", H5T_NATIVE_DOUBLE);
+  state.tracers.last_host_mass_code =
+      readDataset1dAligned<double>(tracer_group.get(), "last_host_mass_code", H5T_NATIVE_DOUBLE);
+  state.tracers.cumulative_exchanged_mass_code =
+      readDataset1dAligned<double>(tracer_group.get(), "cumulative_exchanged_mass_code", H5T_NATIVE_DOUBLE);
 
   state.metadata = core::StateMetadata::deserialize(readStringDataset(state_group.get(), "state_metadata"));
   state.rebuildSpeciesIndex();
@@ -594,6 +611,10 @@ std::uint64_t restartPayloadIntegrityHash(const RestartWritePayload& payload) {
   append_any_vec(state.tracers.particle_index);
   append_any_vec(state.tracers.parent_particle_id);
   append_any_vec(state.tracers.injection_step);
+  append_any_vec(state.tracers.host_cell_index);
+  append_any_vec(state.tracers.mass_fraction_of_host);
+  append_any_vec(state.tracers.last_host_mass_code);
+  append_any_vec(state.tracers.cumulative_exchanged_mass_code);
   append_any_vec(state.species.count_by_species);
 
   const auto ordered_sidecars = state.sidecars.blocksSortedByName();
