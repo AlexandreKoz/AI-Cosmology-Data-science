@@ -1,57 +1,62 @@
-# Contributing
+# Contributing to CosmoSim
 
-## Development workflow
+CosmoSim is a research codebase with strict expectations for numerical integrity, reproducibility, and auditable interfaces.
 
-1. Start from a clean branch.
-2. Pick the **smallest preset** that exercises your change:
-   - `cpu-only-debug` for default development.
-   - `hdf5-debug` for snapshot/restart/provenance I/O work.
-   - `pm-hdf5-fftw-debug` for PM/TreePM validation.
-3. Configure, build, and run tests using presets.
-4. Include the exact commands and outcomes in your PR description.
+## 1) Required developer workflow
 
-## Emergency repair mode rules
+1. Choose the smallest preset that exercises your change.
+2. Keep changes modular and ownership-respecting.
+3. Run relevant unit + integration + validation checks.
+4. If behavior or interfaces change, update docs in the same patch.
+5. Include exact commands and outcomes in your PR.
 
-When a prompt is scoped as a narrow repair:
+See build matrix details in [`docs/build_instructions.md`](docs/build_instructions.md).
 
-- Make minimal, auditable changes.
-- Do not rewrite unrelated files.
-- Do not land architecture churn as part of a narrow fix.
-- Preserve established architecture discipline (SoA state, hot/cold separation, sidecar usage, typed config, provenance, stage-based integrator contracts).
-- Do not claim closure unless the intended feature path compiles and the intended tests pass.
-- Do not silently downgrade to CPU-only if an explicitly enabled dependency is missing.
+## 2) Interface and naming rules (authoritative)
 
-## Interface drift control
+- Files/directories: `lower_snake`.
+- Classes/types: `PascalCase`.
+- Methods: `camelCase`.
+- Variables/parameters: `lower_snake`.
+- Members: `m_lower_snake`.
+- Use explicit unit/frame suffixes (`_code`, `_si`, `_cgs`, `_phys`, `_comov`) when ambiguous.
 
-- Public header/API changes require explicit migration notes in the PR.
-- Configuration or preset behavior changes must update docs in the same patch.
-- Schema/provenance-affecting I/O changes must document schema version and compatibility impact.
+Public API ownership remains under `include/cosmosim/<module>/...`; internal helpers remain under `src/<module>/internal/...`.
 
-## Build and test quickstart
+## 3) Change-control rules
 
-```bash
-cmake --preset cpu-only-debug
-cmake --build --preset build-cpu-debug
-ctest --preset test-cpu-debug
-```
+You **must** document these in the same patch when changed:
 
-See `docs/build_instructions.md` for dependency-enabled paths and troubleshooting.
+- config keys or parsing behavior,
+- snapshot/restart/provenance schema fields,
+- mode-policy behavior (frame/boundary/units conventions),
+- benchmark/profiling output contract used by developers.
 
+Required docs for those updates:
 
-## Repository hygiene guardrails
+- config changes → `docs/configuration.md`
+- output schema changes → `docs/output_schema.md`
+- validation changes → `docs/validation_plan.md`
+- benchmark/profiling workflow changes → `docs/profiling.md`
+- architecture-level decisions → `docs/architecture/decision_log.md`
 
-- Keep repository-root entries automation-safe (`[A-Za-z0-9._-]` only).
-- Root-level non-code/binary artifacts are prohibited unless explicitly required by build tooling.
-- Quarantine exceptional legacy artifacts under `docs/quarantine/` with written rationale.
-- Before claiming a repair prompt is closed, run `./scripts/ci/check_repo_hygiene.sh` and the relevant preset guard path(s).
+## 4) Codex prompt + review expectations
 
-## Required repair verification commands
+Every implementation PR should satisfy the workflow contract in [`docs/architecture/developer_workflow_contract.md`](docs/architecture/developer_workflow_contract.md):
 
-For emergency stabilization prompts, include command output for both baseline and intended feature path:
+- explicit assumptions and invariants,
+- no hidden schema/config drift,
+- no placeholder core logic,
+- exact changed-file listing and rationale,
+- test and benchmark/profiling evidence.
+
+## 5) Local checks before opening a PR
 
 ```bash
 ./scripts/ci/check_repo_hygiene.sh
-./scripts/ci/guard_feature_paths.sh
+cmake --preset cpu-only-debug
+cmake --build --preset build-cpu-debug
+ctest --preset test-cpu-debug --output-on-failure
 ```
 
-If your change only affects one path, you may run a narrower subset, but you must state why in the PR.
+If your patch touches HDF5/FFTW/MPI/CUDA/Python paths, also run the matching dependency-enabled preset(s) from `docs/build_instructions.md`.

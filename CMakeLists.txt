@@ -512,6 +512,13 @@ if(COSMOSIM_ENABLE_TESTS)
   add_test(NAME integration_configure_presets
            COMMAND ${CMAKE_COMMAND} -P "${CMAKE_BINARY_DIR}/test_configure_presets.cmake")
 
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/integration/test_docs_scaffold.cmake.in"
+    "${CMAKE_BINARY_DIR}/test_docs_scaffold.cmake"
+    @ONLY)
+  add_test(NAME integration_docs_scaffold
+           COMMAND ${CMAKE_COMMAND} -P "${CMAKE_BINARY_DIR}/test_docs_scaffold.cmake")
+
   add_executable(
     test_validation_unit
     tests/validation/test_validation_unit.cpp
@@ -598,6 +605,9 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
 
   add_executable(bench_config_parser bench/bench_config_parser.cpp)
   target_link_libraries(bench_config_parser PRIVATE cosmosim_core)
+
+  add_executable(bench_docs_reference_scan bench/bench_docs_reference_scan.cpp)
+  target_include_directories(bench_docs_reference_scan PRIVATE ${PROJECT_SOURCE_DIR})
 
   add_executable(bench_simulation_state_resize bench/bench_simulation_state_resize.cpp)
   target_link_libraries(bench_simulation_state_resize PRIVATE cosmosim_core)
