@@ -266,6 +266,20 @@ void validateConfig(const SimulationConfig& config) {
   if (config.parallel.mpi_ranks_expected <= 0 || config.parallel.omp_threads <= 0) {
     throw ConfigError("parallel settings require positive mpi_ranks_expected and omp_threads");
   }
+  if (config.analysis.run_health_interval_steps <= 0 ||
+      config.analysis.science_light_interval_steps <= 0 ||
+      config.analysis.science_heavy_interval_steps <= 0) {
+    throw ConfigError("analysis cadence intervals must be > 0");
+  }
+  if (config.analysis.retention_bundle_count < 1) {
+    throw ConfigError("analysis.retention_bundle_count must be >= 1");
+  }
+  if (config.analysis.power_spectrum_mesh_n < 4 ||
+      config.analysis.power_spectrum_bin_count < 1 ||
+      config.analysis.sf_history_bin_count < 1 ||
+      config.analysis.quicklook_grid_n < 4) {
+    throw ConfigError("analysis mesh/bin settings must be within conservative minimum bounds");
+  }
   if (config.cosmology.omega_matter <= 0.0 || config.cosmology.omega_lambda < 0.0) {
     throw ConfigError("cosmology requires omega_matter > 0 and omega_lambda >= 0");
   }
@@ -447,6 +461,18 @@ void validateConfig(const SimulationConfig& config) {
   stream << "gpu_devices = " << frozen.config.parallel.gpu_devices << '\n';
   stream << "deterministic_reduction = "
          << (frozen.config.parallel.deterministic_reduction ? "true" : "false") << '\n';
+  stream << "\n[analysis]\n";
+  stream << "enable_diagnostics = " << (frozen.config.analysis.enable_diagnostics ? "true" : "false")
+         << '\n';
+  stream << "run_health_interval_steps = " << frozen.config.analysis.run_health_interval_steps << '\n';
+  stream << "science_light_interval_steps = " << frozen.config.analysis.science_light_interval_steps << '\n';
+  stream << "science_heavy_interval_steps = " << frozen.config.analysis.science_heavy_interval_steps << '\n';
+  stream << "retention_bundle_count = " << frozen.config.analysis.retention_bundle_count << '\n';
+  stream << "power_spectrum_mesh_n = " << frozen.config.analysis.power_spectrum_mesh_n << '\n';
+  stream << "power_spectrum_bin_count = " << frozen.config.analysis.power_spectrum_bin_count << '\n';
+  stream << "sf_history_bin_count = " << frozen.config.analysis.sf_history_bin_count << '\n';
+  stream << "quicklook_grid_n = " << frozen.config.analysis.quicklook_grid_n << '\n';
+  stream << "diagnostics_stem = " << frozen.config.analysis.diagnostics_stem << '\n';
   stream << "\n[compatibility]\n";
   stream << "allow_unknown_keys = "
          << (frozen.config.compatibility.allow_unknown_keys ? "true" : "false") << '\n';
@@ -716,6 +742,37 @@ void validateConfig(const SimulationConfig& config) {
   frozen.config.parallel.deterministic_reduction =
       parseBool(requireString(entries, consumed, "parallel.deterministic_reduction", "true"),
                 "parallel.deterministic_reduction");
+
+  frozen.config.analysis.enable_diagnostics = parseBool(
+      requireString(entries, consumed, "analysis.enable_diagnostics", "true"),
+      "analysis.enable_diagnostics");
+  frozen.config.analysis.run_health_interval_steps = static_cast<int>(parseNumber<long>(
+      requireString(entries, consumed, "analysis.run_health_interval_steps", "1"),
+      "analysis.run_health_interval_steps"));
+  frozen.config.analysis.science_light_interval_steps = static_cast<int>(parseNumber<long>(
+      requireString(entries, consumed, "analysis.science_light_interval_steps", "8"),
+      "analysis.science_light_interval_steps"));
+  frozen.config.analysis.science_heavy_interval_steps = static_cast<int>(parseNumber<long>(
+      requireString(entries, consumed, "analysis.science_heavy_interval_steps", "64"),
+      "analysis.science_heavy_interval_steps"));
+  frozen.config.analysis.retention_bundle_count = static_cast<int>(parseNumber<long>(
+      requireString(entries, consumed, "analysis.retention_bundle_count", "8"),
+      "analysis.retention_bundle_count"));
+  frozen.config.analysis.power_spectrum_mesh_n = static_cast<int>(parseNumber<long>(
+      requireString(entries, consumed, "analysis.power_spectrum_mesh_n", "16"),
+      "analysis.power_spectrum_mesh_n"));
+  frozen.config.analysis.power_spectrum_bin_count = static_cast<int>(parseNumber<long>(
+      requireString(entries, consumed, "analysis.power_spectrum_bin_count", "12"),
+      "analysis.power_spectrum_bin_count"));
+  frozen.config.analysis.sf_history_bin_count = static_cast<int>(parseNumber<long>(
+      requireString(entries, consumed, "analysis.sf_history_bin_count", "16"),
+      "analysis.sf_history_bin_count"));
+  frozen.config.analysis.quicklook_grid_n = static_cast<int>(parseNumber<long>(
+      requireString(entries, consumed, "analysis.quicklook_grid_n", "32"),
+      "analysis.quicklook_grid_n"));
+  frozen.config.analysis.diagnostics_stem = sanitizeStem(
+      requireString(entries, consumed, "analysis.diagnostics_stem", frozen.config.analysis.diagnostics_stem),
+      "analysis.diagnostics_stem");
 
   const bool compatible_by_file = parseBool(
       requireString(entries, consumed, "compatibility.allow_unknown_keys", "false"),

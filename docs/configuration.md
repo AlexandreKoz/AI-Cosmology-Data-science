@@ -43,6 +43,22 @@ Mode-policy validation rules:
 
 For isolated gravity, the current boundary treatment is a monopole/Dirichlet-style reference potential ghost fill (`isolated_monopole`) documented in the mode policy and preserved in normalized snapshots for provenance.
 
+
+## Analysis and diagnostics keys
+
+The `analysis` section controls standard in-situ diagnostics with explicit cadence and retention:
+- `enable_diagnostics` (`true`/`false`)
+- `run_health_interval_steps` (> 0): cadence for cheap health counters.
+- `science_light_interval_steps` (> 0): cadence for light science products (SF history, angular momentum budgets, quicklook slice/projection).
+- `science_heavy_interval_steps` (> 0): cadence for heavy products (currently power spectrum).
+- `retention_bundle_count` (>= 1): maximum number of diagnostics bundles retained per run output directory.
+- `power_spectrum_mesh_n` (>= 4) and `power_spectrum_bin_count` (>= 1): periodic density-grid and shell binning controls.
+- `sf_history_bin_count` (>= 1): star-formation history bin count in scale-factor space.
+- `quicklook_grid_n` (>= 4): XY slice/projection quicklook resolution.
+- `diagnostics_stem` (`[a-zA-Z0-9_-]`): stable diagnostics bundle filename stem.
+
+Diagnostics bundles record explicit frame and unit conventions (`comoving`, `code`), and write to `<output.output_directory>/<output.run_name>/diagnostics` with stable step-based names.
+
 ## Cooling/heating keys
 
 The `physics` section also supports cooling/heating normalization keys:

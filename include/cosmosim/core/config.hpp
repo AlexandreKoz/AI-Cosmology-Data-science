@@ -96,6 +96,20 @@ struct OutputConfig {
   bool write_restarts = true;
 };
 
+
+struct AnalysisConfig {
+  bool enable_diagnostics = true;
+  int run_health_interval_steps = 1;
+  int science_light_interval_steps = 8;
+  int science_heavy_interval_steps = 64;
+  int retention_bundle_count = 8;
+  int power_spectrum_mesh_n = 16;
+  int power_spectrum_bin_count = 12;
+  int sf_history_bin_count = 16;
+  int quicklook_grid_n = 32;
+  std::string diagnostics_stem = "diagnostics";
+};
+
 struct ParallelConfig {
   int mpi_ranks_expected = 1;
   int omp_threads = 1;
@@ -130,6 +144,7 @@ struct SimulationConfig {
   PhysicsConfig physics;
   OutputConfig output;
   ParallelConfig parallel;
+  AnalysisConfig analysis;
   UnitsConfig units;
   ModeConfig mode;
   CompatibilityConfig compatibility;

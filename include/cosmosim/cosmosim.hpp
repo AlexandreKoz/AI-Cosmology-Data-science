@@ -7,6 +7,7 @@
 #include "cosmosim/amr/amr_module.hpp"
 #include "cosmosim/amr/amr_framework.hpp"
 #include "cosmosim/analysis/analysis_module.hpp"
+#include "cosmosim/analysis/diagnostics.hpp"
 #include "cosmosim/core/config.hpp"
 #include "cosmosim/core/cosmology.hpp"
 #include "cosmosim/core/provenance.hpp"
