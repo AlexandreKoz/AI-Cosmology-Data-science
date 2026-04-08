@@ -5,6 +5,7 @@
 #include <cmath>
 #include <limits>
 #include <stdexcept>
+#include <string>
 #include <utility>
 
 namespace cosmosim::core {
@@ -114,9 +115,22 @@ void StepOrchestrator::executeSingleStep(
     ActiveSetDescriptor active_set,
     const LambdaCdmBackground* cosmology_background,
     TransientStepWorkspace* workspace,
-    const ModePolicy* mode_policy) const {
+    const ModePolicy* mode_policy,
+    ProfilerSession* profiler_session) const {
   if (integrator_state.dt_time_code <= 0.0) {
     throw std::invalid_argument("dt_time_code must be positive");
+  }
+
+  COSMOSIM_PROFILE_SCOPE(profiler_session, "step_orchestrator.execute_single_step");
+
+  if (profiler_session != nullptr) {
+    profiler_session->counters().setCount(
+        "active_particles",
+        static_cast<std::uint64_t>(active_set.particle_indices.size()));
+    profiler_session->counters().setCount(
+        "active_cells",
+        static_cast<std::uint64_t>(active_set.cell_indices.size()));
+    profiler_session->counters().addCount("step_invocations", 1);
   }
 
   StepContext context{
@@ -132,8 +146,19 @@ void StepOrchestrator::executeSingleStep(
   const auto ordered_stages = m_scheduler.schedule(integrator_state, active_set);
   for (const auto stage : ordered_stages) {
     context.stage = stage;
+    const std::string stage_name = "stage." + std::string(integrationStageName(stage));
+    COSMOSIM_PROFILE_SCOPE(profiler_session, stage_name);
+    if (profiler_session != nullptr) {
+      profiler_session->counters().addCount(stage_name + ".invocations", 1);
+    }
+
     for (auto* callback : m_callbacks) {
+      const std::string callback_phase = "callback." + std::string(callback->callbackName());
+      COSMOSIM_PROFILE_SCOPE(profiler_session, callback_phase);
       callback->onStage(context);
+      if (profiler_session != nullptr) {
+        profiler_session->counters().addCount(callback_phase + ".invocations", 1);
+      }
     }
   }
 
