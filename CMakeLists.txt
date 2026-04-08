@@ -168,7 +168,9 @@ add_library(cosmosim_analysis STATIC
   src/analysis/analysis_module.cpp
   src/analysis/diagnostics.cpp
   src/analysis/halo_workflow.cpp)
-add_library(cosmosim_parallel STATIC src/parallel/parallel_module.cpp)
+add_library(cosmosim_parallel STATIC
+  src/parallel/parallel_module.cpp
+  src/parallel/distributed_memory.cpp)
 add_library(cosmosim_utils STATIC src/utils/utils_module.cpp)
 
 set(COSMOSIM_MODULE_LIBS
@@ -274,6 +276,11 @@ if(COSMOSIM_ENABLE_TESTS)
   add_executable(test_unit_hot_cold_sidecar_layout tests/unit/test_hot_cold_sidecar_layout.cpp)
   target_link_libraries(test_unit_hot_cold_sidecar_layout PRIVATE cosmosim_core)
   add_test(NAME unit_hot_cold_sidecar_layout COMMAND test_unit_hot_cold_sidecar_layout)
+
+
+  add_executable(test_unit_parallel_distributed_memory tests/unit/test_parallel_distributed_memory.cpp)
+  target_link_libraries(test_unit_parallel_distributed_memory PRIVATE cosmosim_parallel)
+  add_test(NAME unit_parallel_distributed_memory COMMAND test_unit_parallel_distributed_memory)
 
   add_executable(test_unit_hydro_reconstruction tests/unit/test_hydro_reconstruction.cpp)
   target_link_libraries(test_unit_hydro_reconstruction PRIVATE cosmosim_all)
@@ -390,6 +397,11 @@ if(COSMOSIM_ENABLE_TESTS)
   add_executable(test_unit_hydro_core_solver tests/unit/test_hydro_core_solver.cpp)
   target_link_libraries(test_unit_hydro_core_solver PRIVATE cosmosim_hydro)
   add_test(NAME unit_hydro_core_solver COMMAND test_unit_hydro_core_solver)
+
+
+  add_executable(test_integration_parallel_two_rank_restart tests/integration/test_parallel_two_rank_restart.cpp)
+  target_link_libraries(test_integration_parallel_two_rank_restart PRIVATE cosmosim_parallel cosmosim_core)
+  add_test(NAME integration_parallel_two_rank_restart COMMAND test_integration_parallel_two_rank_restart)
 
   add_executable(test_integration_hydro_sod_like tests/integration/test_hydro_sod_like.cpp)
   target_link_libraries(test_integration_hydro_sod_like PRIVATE cosmosim_hydro)
@@ -542,6 +554,11 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
   target_link_libraries(bench_layout_smoke PRIVATE cosmosim_core)
   target_include_directories(bench_layout_smoke PRIVATE ${PROJECT_SOURCE_DIR}/src)
   target_compile_definitions(bench_layout_smoke PRIVATE COSMOSIM_BENCHMARK_BUILD=1)
+
+
+  add_executable(bench_parallel_decomposition_exchange bench/bench_parallel_decomposition_exchange.cpp)
+  target_link_libraries(bench_parallel_decomposition_exchange PRIVATE cosmosim_parallel)
+  target_include_directories(bench_parallel_decomposition_exchange PRIVATE ${PROJECT_SOURCE_DIR})
 
   add_executable(bench_config_parser bench/bench_config_parser.cpp)
   target_link_libraries(bench_config_parser PRIVATE cosmosim_core)
