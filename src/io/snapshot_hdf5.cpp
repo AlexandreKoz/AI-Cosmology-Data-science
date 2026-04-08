@@ -25,6 +25,9 @@ constexpr std::uint32_t k_species_dark_matter =
     static_cast<std::uint32_t>(core::ParticleSpecies::kDarkMatter);
 constexpr std::uint32_t k_species_gas = static_cast<std::uint32_t>(core::ParticleSpecies::kGas);
 constexpr std::uint32_t k_species_star = static_cast<std::uint32_t>(core::ParticleSpecies::kStar);
+constexpr std::uint32_t k_species_black_hole =
+    static_cast<std::uint32_t>(core::ParticleSpecies::kBlackHole);
+constexpr std::uint32_t k_species_tracer = static_cast<std::uint32_t>(core::ParticleSpecies::kTracer);
 
 [[nodiscard]] std::size_t mapSpeciesTagToPartType(std::uint32_t species_tag) {
   if (species_tag == k_species_gas) {
@@ -32,6 +35,12 @@ constexpr std::uint32_t k_species_star = static_cast<std::uint32_t>(core::Partic
   }
   if (species_tag == k_species_star) {
     return 4;
+  }
+  if (species_tag == k_species_tracer) {
+    return 3;
+  }
+  if (species_tag == k_species_black_hole) {
+    return 5;
   }
   return 1;
 }
@@ -42,6 +51,12 @@ constexpr std::uint32_t k_species_star = static_cast<std::uint32_t>(core::Partic
   }
   if (part_type == 4) {
     return k_species_star;
+  }
+  if (part_type == 3) {
+    return k_species_tracer;
+  }
+  if (part_type == 5) {
+    return k_species_black_hole;
   }
   return k_species_dark_matter;
 }
@@ -371,6 +386,25 @@ void readDatasetChunkIds(
   }
 }
 
+void readDatasetChunkU32(
+    hid_t group,
+    const std::string& dataset_name,
+    std::size_t start,
+    std::size_t count,
+    std::vector<std::uint32_t>& out) {
+  Hdf5Handle dataset(H5Dopen2(group, dataset_name.c_str(), H5P_DEFAULT));
+  Hdf5Handle file_space(H5Dget_space(dataset.get()));
+  hsize_t file_offset[1] = {static_cast<hsize_t>(start)};
+  hsize_t file_count[1] = {static_cast<hsize_t>(count)};
+  H5Sselect_hyperslab(file_space.get(), H5S_SELECT_SET, file_offset, nullptr, file_count, nullptr);
+  hsize_t mem_dims[1] = {static_cast<hsize_t>(count)};
+  Hdf5Handle mem_space(H5Screate_simple(1, mem_dims, nullptr));
+  out.resize(count);
+  if (!dataset.valid() || H5Dread(dataset.get(), H5T_NATIVE_UINT32, mem_space.get(), file_space.get(), H5P_DEFAULT, out.data()) < 0) {
+    throw std::runtime_error("failed to read uint32 dataset: " + dataset_name);
+  }
+}
+
 [[nodiscard]] std::string pickAlias(
     hid_t group,
     const GadgetArepoFieldAliases& aliases,
@@ -456,6 +490,13 @@ void writeGadgetArepoSnapshotHdf5(
 
   const core::SimulationState& state = *payload.state;
   const core::SimulationConfig& config = *payload.config;
+  std::vector<std::int64_t> tracer_row_by_particle(state.particles.size(), -1);
+  for (std::size_t tracer_row = 0; tracer_row < state.tracers.size(); ++tracer_row) {
+    const std::uint32_t particle_index = state.tracers.particle_index[tracer_row];
+    if (particle_index < tracer_row_by_particle.size()) {
+      tracer_row_by_particle[particle_index] = static_cast<std::int64_t>(tracer_row);
+    }
+  }
 
   std::array<std::uint64_t, 6> count_by_type{};
   std::array<double, 6> mass_table{};
@@ -529,6 +570,44 @@ void writeGadgetArepoSnapshotHdf5(
     writeDataset2d3(type_group.get(), schema.velocities.canonical_name, velocities, indices.size(), policy);
     writeDataset1d(type_group.get(), schema.masses.canonical_name, masses.data(), indices.size(), policy);
     writeDataset1dU64(type_group.get(), schema.particle_ids.canonical_name, ids.data(), indices.size(), policy);
+    if (type_index == 3) {
+      std::vector<std::uint64_t> parent_particle_id(indices.size(), 0);
+      std::vector<std::uint64_t> injection_step(indices.size(), 0);
+      std::vector<std::uint32_t> host_cell_index(indices.size(), 0);
+      std::vector<double> mass_fraction_of_host(indices.size(), 0.0);
+      std::vector<double> cumulative_exchanged_mass_code(indices.size(), 0.0);
+      for (std::size_t i = 0; i < indices.size(); ++i) {
+        const std::int64_t tracer_row = tracer_row_by_particle[indices[i]];
+        if (tracer_row < 0) {
+          continue;
+        }
+        parent_particle_id[i] = state.tracers.parent_particle_id[tracer_row];
+        injection_step[i] = state.tracers.injection_step[tracer_row];
+        host_cell_index[i] = state.tracers.host_cell_index[tracer_row];
+        mass_fraction_of_host[i] = state.tracers.mass_fraction_of_host[tracer_row];
+        cumulative_exchanged_mass_code[i] =
+            state.tracers.cumulative_exchanged_mass_code[tracer_row];
+      }
+      writeDataset1dU64(type_group.get(), "TracerParentParticleID", parent_particle_id.data(), indices.size(), policy);
+      writeDataset1dU64(type_group.get(), "TracerInjectionStep", injection_step.data(), indices.size(), policy);
+      hsize_t dims[1] = {static_cast<hsize_t>(indices.size())};
+      Hdf5Handle dataspace(H5Screate_simple(1, dims, nullptr));
+      Hdf5Handle properties = createDatasetProperties(indices.size(), 1, policy);
+      Hdf5Handle host_ds(H5Dcreate2(
+          type_group.get(), "TracerHostCellIndex", H5T_STD_U32LE, dataspace.get(), H5P_DEFAULT, properties.get(), H5P_DEFAULT));
+      Hdf5Handle frac_ds(H5Dcreate2(
+          type_group.get(), "TracerMassFractionOfHost", H5T_IEEE_F64LE, dataspace.get(), H5P_DEFAULT, properties.get(), H5P_DEFAULT));
+      Hdf5Handle exchange_ds(H5Dcreate2(
+          type_group.get(), "TracerCumulativeExchangedMassCode", H5T_IEEE_F64LE, dataspace.get(), H5P_DEFAULT, properties.get(), H5P_DEFAULT));
+      if (!host_ds.valid() ||
+          H5Dwrite(host_ds.get(), H5T_NATIVE_UINT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, host_cell_index.data()) < 0 ||
+          !frac_ds.valid() ||
+          H5Dwrite(frac_ds.get(), H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, mass_fraction_of_host.data()) < 0 ||
+          !exchange_ds.valid() ||
+          H5Dwrite(exchange_ds.get(), H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, cumulative_exchanged_mass_code.data()) < 0) {
+        throw std::runtime_error("failed to write tracer sidecar datasets");
+      }
+    }
 
     if (policy.write_particle_type_alias_groups) {
       const std::string alias_group_path = toTypeAliasPath(type_index);
@@ -589,6 +668,12 @@ SnapshotReadResult readGadgetArepoSnapshotHdf5(
     total_count += static_cast<std::size_t>(count);
   }
   result.state.resizeParticles(total_count);
+  std::vector<std::uint32_t> tracer_particle_index;
+  std::vector<std::uint64_t> tracer_parent_particle_id;
+  std::vector<std::uint64_t> tracer_injection_step;
+  std::vector<std::uint32_t> tracer_host_cell_index;
+  std::vector<double> tracer_mass_fraction_of_host;
+  std::vector<double> tracer_cumulative_exchanged_mass_code;
 
   std::size_t global_offset = 0;
   for (std::size_t type_index = 0; type_index < header_counts.size(); ++type_index) {
@@ -636,6 +721,11 @@ SnapshotReadResult readGadgetArepoSnapshotHdf5(
     std::vector<double> vel_chunk;
     std::vector<double> mass_chunk;
     std::vector<std::uint64_t> ids_chunk;
+    std::vector<std::uint64_t> tracer_parent_chunk;
+    std::vector<std::uint64_t> tracer_step_chunk;
+    std::vector<std::uint32_t> tracer_host_chunk;
+    std::vector<double> tracer_fraction_chunk;
+    std::vector<double> tracer_exchange_chunk;
 
     readDatasetChunk2d(group.get(), coordinates_name, 0, local_count, coords_chunk);
     if (!velocities_name.empty()) {
@@ -663,6 +753,33 @@ SnapshotReadResult readGadgetArepoSnapshotHdf5(
     } else {
       throw std::runtime_error("Masses missing and fallback disabled");
     }
+    if (type_index == 3) {
+      if (hdf5PathExists(group.get(), "TracerParentParticleID")) {
+        readDatasetChunkIds(group.get(), "TracerParentParticleID", 0, local_count, tracer_parent_chunk);
+      } else {
+        tracer_parent_chunk.assign(local_count, 0);
+      }
+      if (hdf5PathExists(group.get(), "TracerInjectionStep")) {
+        readDatasetChunkIds(group.get(), "TracerInjectionStep", 0, local_count, tracer_step_chunk);
+      } else {
+        tracer_step_chunk.assign(local_count, 0);
+      }
+      if (hdf5PathExists(group.get(), "TracerHostCellIndex")) {
+        readDatasetChunkU32(group.get(), "TracerHostCellIndex", 0, local_count, tracer_host_chunk);
+      } else {
+        tracer_host_chunk.assign(local_count, 0);
+      }
+      if (hdf5PathExists(group.get(), "TracerMassFractionOfHost")) {
+        readDatasetChunk1d(group.get(), "TracerMassFractionOfHost", 0, local_count, tracer_fraction_chunk);
+      } else {
+        tracer_fraction_chunk.assign(local_count, 0.0);
+      }
+      if (hdf5PathExists(group.get(), "TracerCumulativeExchangedMassCode")) {
+        readDatasetChunk1d(group.get(), "TracerCumulativeExchangedMassCode", 0, local_count, tracer_exchange_chunk);
+      } else {
+        tracer_exchange_chunk.assign(local_count, 0.0);
+      }
+    }
 
     for (std::size_t i = 0; i < local_count; ++i) {
       const std::size_t global_i = global_offset + i;
@@ -677,12 +794,31 @@ SnapshotReadResult readGadgetArepoSnapshotHdf5(
       result.state.particle_sidecar.particle_id[global_i] = ids_chunk[i];
       result.state.particle_sidecar.species_tag[global_i] = mapPartTypeToSpeciesTag(type_index);
       result.state.particle_sidecar.owning_rank[global_i] = 0;
+      result.state.species.count_by_species[result.state.particle_sidecar.species_tag[global_i]] += 1;
+      if (type_index == 3) {
+        tracer_particle_index.push_back(static_cast<std::uint32_t>(global_i));
+        tracer_parent_particle_id.push_back(tracer_parent_chunk[i]);
+        tracer_injection_step.push_back(tracer_step_chunk[i]);
+        tracer_host_cell_index.push_back(tracer_host_chunk[i]);
+        tracer_mass_fraction_of_host.push_back(tracer_fraction_chunk[i]);
+        tracer_cumulative_exchanged_mass_code.push_back(tracer_exchange_chunk[i]);
+      }
     }
 
     global_offset += local_count;
   }
 
   result.state.metadata.run_name = config.output.run_name;
+  result.state.tracers.resize(tracer_particle_index.size());
+  for (std::size_t i = 0; i < tracer_particle_index.size(); ++i) {
+    result.state.tracers.particle_index[i] = tracer_particle_index[i];
+    result.state.tracers.parent_particle_id[i] = tracer_parent_particle_id[i];
+    result.state.tracers.injection_step[i] = tracer_injection_step[i];
+    result.state.tracers.host_cell_index[i] = tracer_host_cell_index[i];
+    result.state.tracers.mass_fraction_of_host[i] = tracer_mass_fraction_of_host[i];
+    result.state.tracers.last_host_mass_code[i] = 0.0;
+    result.state.tracers.cumulative_exchanged_mass_code[i] = tracer_cumulative_exchanged_mass_code[i];
+  }
   result.state.rebuildSpeciesIndex();
 
   Hdf5Handle config_group(H5Gopen2(file.get(), std::string(schema.config_group).c_str(), H5P_DEFAULT));

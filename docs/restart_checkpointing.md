@@ -34,6 +34,8 @@ behavior on filesystems where `rename` is atomic.
 - The hash covers particle lanes, sidecars, species counts, star/BH/tracer sidecars, integrator
   time-bin context, and scheduler persistent arrays (`bin_index`, `next_activation_tick`,
   `active_flag`, `pending_bin_index`).
+- Tracer restart payload includes host-coupling lanes (`host_cell_index`, `mass_fraction_of_host`,
+  `last_host_mass_code`, `cumulative_exchanged_mass_code`) for deterministic continuation.
 - Writer stores both integer and hex payload integrity hashes.
 - Reader recomputes hash and rejects mismatches.
 - Provenance is serialized with the checkpoint for continuation auditing.

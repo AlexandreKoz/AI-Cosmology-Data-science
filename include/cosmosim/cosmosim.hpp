@@ -33,6 +33,7 @@
 #include "cosmosim/physics/black_hole_agn.hpp"
 #include "cosmosim/physics/stellar_evolution.hpp"
 #include "cosmosim/physics/stellar_feedback.hpp"
+#include "cosmosim/physics/tracer_support.hpp"
 #include "cosmosim/utils/utils_module.hpp"
 
 namespace cosmosim {

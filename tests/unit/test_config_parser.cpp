@@ -182,6 +182,30 @@ bh_duty_cycle_active_edd_ratio_threshold = 0.03
   assert(threw);
 }
 
+void testTracerConfigKeysAndValidation() {
+  const std::string good_text = R"(
+[mode]
+mode = zoom_in
+[physics]
+enable_tracers = true
+tracer_track_mass = true
+tracer_min_host_mass_code = 1.0e-6
+)";
+  const auto frozen = cosmosim::core::loadFrozenConfigFromString(good_text, "tracer_good");
+  assert(frozen.config.physics.enable_tracers);
+  assert(frozen.config.physics.tracer_track_mass);
+  assert(frozen.config.physics.tracer_min_host_mass_code == 1.0e-6);
+
+  const std::string bad_text = "[mode]\nmode = zoom_in\n[physics]\ntracer_min_host_mass_code = -1.0\n";
+  bool threw = false;
+  try {
+    (void)cosmosim::core::loadFrozenConfigFromString(bad_text, "tracer_bad");
+  } catch (const cosmosim::core::ConfigError&) {
+    threw = true;
+  }
+  assert(threw);
+}
+
 }  // namespace
 
 int main() {
@@ -194,5 +218,6 @@ int main() {
   testDefaultsCanonicalizationAndDeterminism();
   testFeedbackConfigKeysAndValidation();
   testBlackHoleAgnConfigKeysAndValidation();
+  testTracerConfigKeysAndValidation();
   return 0;
 }
