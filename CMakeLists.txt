@@ -447,6 +447,46 @@ if(COSMOSIM_ENABLE_TESTS)
     @ONLY)
   add_test(NAME integration_configure_presets
            COMMAND ${CMAKE_COMMAND} -P "${CMAKE_BINARY_DIR}/test_configure_presets.cmake")
+
+  add_executable(
+    test_validation_unit
+    tests/validation/test_validation_unit.cpp
+    tests/validation/validation_tolerance.cpp)
+  target_link_libraries(test_validation_unit PRIVATE cosmosim_all)
+  target_include_directories(test_validation_unit PRIVATE tests/validation)
+  target_compile_definitions(test_validation_unit PRIVATE COSMOSIM_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+  add_test(NAME validation_unit COMMAND test_validation_unit)
+  set_tests_properties(validation_unit PROPERTIES LABELS "validation;unit")
+
+  add_executable(
+    test_validation_integration
+    tests/validation/test_validation_integration.cpp
+    tests/validation/validation_tolerance.cpp)
+  target_link_libraries(test_validation_integration PRIVATE cosmosim_all)
+  target_include_directories(test_validation_integration PRIVATE tests/validation)
+  target_compile_definitions(test_validation_integration PRIVATE COSMOSIM_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+  add_test(NAME validation_integration COMMAND test_validation_integration)
+  set_tests_properties(validation_integration PROPERTIES LABELS "validation;integration")
+
+  add_executable(
+    test_validation_convergence
+    tests/validation/test_validation_convergence.cpp
+    tests/validation/validation_tolerance.cpp)
+  target_link_libraries(test_validation_convergence PRIVATE cosmosim_all)
+  target_include_directories(test_validation_convergence PRIVATE tests/validation)
+  target_compile_definitions(test_validation_convergence PRIVATE COSMOSIM_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+  add_test(NAME validation_convergence COMMAND test_validation_convergence)
+  set_tests_properties(validation_convergence PROPERTIES LABELS "validation;convergence")
+
+  add_executable(
+    test_validation_regression
+    tests/validation/test_validation_regression.cpp
+    tests/validation/validation_tolerance.cpp)
+  target_link_libraries(test_validation_regression PRIVATE cosmosim_all)
+  target_include_directories(test_validation_regression PRIVATE tests/validation)
+  target_compile_definitions(test_validation_regression PRIVATE COSMOSIM_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+  add_test(NAME validation_regression COMMAND test_validation_regression)
+  set_tests_properties(validation_regression PROPERTIES LABELS "validation;regression")
 endif()
 
 if(COSMOSIM_ENABLE_BENCHMARKS)
@@ -522,6 +562,9 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
   target_link_libraries(bench_stellar_feedback_deposition PRIVATE cosmosim_all)
   add_executable(bench_tracer_update bench/bench_tracer_update.cpp)
   target_link_libraries(bench_tracer_update PRIVATE cosmosim_all)
+
+  add_executable(bench_validation_ladder bench/bench_validation_ladder.cpp)
+  target_link_libraries(bench_validation_ladder PRIVATE cosmosim_all)
 
 endif()
 
