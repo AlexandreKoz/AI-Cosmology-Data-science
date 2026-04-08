@@ -65,6 +65,9 @@ int main() {
             << " gradient_ms=" << profile.gradient_ms
             << " fft_inverse_ms=" << profile.fft_inverse_ms
             << " interpolate_ms=" << profile.interpolate_ms
+            << " transfer_h2d_ms=" << profile.transfer_h2d_ms
+            << " transfer_d2h_ms=" << profile.transfer_d2h_ms
+            << " device_kernel_ms=" << profile.device_kernel_ms
             << " assign_mpart_s=" << assign_throughput_mpart_s * 1.0e-6
             << " interp_mpart_s=" << interp_throughput_mpart_s * 1.0e-6
             << " bytes_moved=" << profile.bytes_moved

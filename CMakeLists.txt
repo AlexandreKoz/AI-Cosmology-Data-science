@@ -139,6 +139,10 @@ add_library(cosmosim_gravity STATIC
   src/gravity/tree_ordering.cpp
   src/gravity/tree_gravity.cpp
   src/gravity/tree_pm_coupling.cpp)
+if(COSMOSIM_ENABLE_CUDA)
+  target_sources(cosmosim_gravity PRIVATE src/gravity/pm_cuda_kernels.cu)
+  set_target_properties(cosmosim_gravity PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+endif()
 add_library(cosmosim_hydro STATIC
   src/hydro/hydro_module.cpp
   src/hydro/hydro_core_solver.cpp
@@ -210,7 +214,7 @@ if(COSMOSIM_ENABLE_FFTW)
 endif()
 
 if(COSMOSIM_ENABLE_CUDA)
-  target_link_libraries(cosmosim_gravity PUBLIC CUDA::cufft)
+  target_link_libraries(cosmosim_gravity PUBLIC CUDA::cufft CUDA::cudart)
 endif()
 
 add_library(cosmosim_all INTERFACE)
@@ -405,6 +409,12 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_integration_pm_periodic_mode PRIVATE cosmosim_gravity)
   add_test(NAME integration_pm_periodic_mode COMMAND test_integration_pm_periodic_mode)
 
+  if(COSMOSIM_ENABLE_CUDA)
+    add_executable(test_integration_pm_cuda_smoke tests/integration/test_pm_cuda_smoke.cpp)
+    target_link_libraries(test_integration_pm_cuda_smoke PRIVATE cosmosim_gravity)
+    add_test(NAME integration_pm_cuda_smoke COMMAND test_integration_pm_cuda_smoke)
+  endif()
+
 
   add_executable(test_unit_ic_reader tests/unit/test_ic_reader.cpp)
   target_link_libraries(test_unit_ic_reader PRIVATE cosmosim_io)
@@ -576,6 +586,9 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
 
   add_executable(bench_pm_solver bench/bench_pm_solver.cpp)
   target_link_libraries(bench_pm_solver PRIVATE cosmosim_gravity)
+
+  add_executable(bench_pm_gpu_transfer bench/bench_pm_gpu_transfer.cpp)
+  target_link_libraries(bench_pm_gpu_transfer PRIVATE cosmosim_gravity)
 
   add_executable(bench_tree_gravity bench/bench_tree_gravity.cpp)
   target_link_libraries(bench_tree_gravity PRIVATE cosmosim_gravity)

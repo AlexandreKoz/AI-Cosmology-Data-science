@@ -14,7 +14,12 @@
 #include <vector>
 
 #include "cosmosim/core/build_config.hpp"
+#include "cosmosim/core/device_buffer.hpp"
 #include "cosmosim/gravity/tree_pm_split_kernel.hpp"
+#if COSMOSIM_ENABLE_CUDA
+#include <cuda_runtime.h>
+#include "cosmosim/gravity/pm_cuda_kernels.hpp"
+#endif
 
 #if COSMOSIM_ENABLE_FFTW
 #include <fftw3.h>
@@ -69,6 +74,10 @@ void validateOptions(const PmGridShape& shape, const PmSolveOptions& options) {
   }
   if (options.assignment_scheme != PmAssignmentScheme::kCic) {
     throw std::invalid_argument("Only CIC assignment is implemented in this build");
+  }
+  if (options.execution_policy == core::ExecutionPolicy::kCuda && options.data_residency == PmDataResidencyPolicy::kHostOnly) {
+    throw std::invalid_argument(
+        "execution_policy=cuda requires data_residency=kPreferDevice for explicit host/device ownership");
   }
 }
 
@@ -229,6 +238,9 @@ void PmProfiler::append(const PmProfileEvent& event) {
   m_totals.gradient_ms += event.gradient_ms;
   m_totals.fft_inverse_ms += event.fft_inverse_ms;
   m_totals.interpolate_ms += event.interpolate_ms;
+  m_totals.transfer_h2d_ms += event.transfer_h2d_ms;
+  m_totals.transfer_d2h_ms += event.transfer_d2h_ms;
+  m_totals.device_kernel_ms += event.device_kernel_ms;
 }
 
 const PmProfileEvent& PmProfiler::totals() const {
@@ -597,6 +609,138 @@ void PmSolver::solveForParticles(
     std::span<double> accel_z,
     const PmSolveOptions& options,
     PmProfileEvent* profile) {
+  validateOptions(m_shape, options);
+
+  if (options.execution_policy == core::ExecutionPolicy::kCuda) {
+#if COSMOSIM_ENABLE_CUDA
+    cudaStream_t stream = nullptr;
+    if (cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking) != cudaSuccess) {
+      throw std::runtime_error("Failed to create CUDA stream for PM solve");
+    }
+
+    try {
+      const auto copy_h2d_start = std::chrono::steady_clock::now();
+      core::DeviceBufferDouble pos_x_device(pos_x.size());
+      core::DeviceBufferDouble pos_y_device(pos_y.size());
+      core::DeviceBufferDouble pos_z_device(pos_z.size());
+      core::DeviceBufferDouble mass_device(mass.size());
+      core::DeviceBufferDouble density_device(m_shape.cellCount());
+
+      core::DeviceBufferDouble force_x_device(m_shape.cellCount());
+      core::DeviceBufferDouble force_y_device(m_shape.cellCount());
+      core::DeviceBufferDouble force_z_device(m_shape.cellCount());
+      core::DeviceBufferDouble accel_x_device(accel_x.size());
+      core::DeviceBufferDouble accel_y_device(accel_y.size());
+      core::DeviceBufferDouble accel_z_device(accel_z.size());
+
+      pos_x_device.copyFromHost(pos_x, stream);
+      pos_y_device.copyFromHost(pos_y, stream);
+      pos_z_device.copyFromHost(pos_z, stream);
+      mass_device.copyFromHost(mass, stream);
+      if (cudaStreamSynchronize(stream) != cudaSuccess) {
+        throw std::runtime_error("Failed while synchronizing H2D particle copy");
+      }
+      const auto copy_h2d_stop = std::chrono::steady_clock::now();
+      if (profile != nullptr) {
+        profile->transfer_h2d_ms += std::chrono::duration<double, std::milli>(copy_h2d_stop - copy_h2d_start).count();
+      }
+
+      const auto kernel_assign_start = std::chrono::steady_clock::now();
+      pmCudaAssignDensityCic(
+          PmCudaAssignLaunch{pos_x.size(), m_shape.nx, m_shape.ny, m_shape.nz, options.box_size_mpc_comoving},
+          pos_x_device.data(),
+          pos_y_device.data(),
+          pos_z_device.data(),
+          mass_device.data(),
+          density_device.data(),
+          stream);
+      if (cudaStreamSynchronize(stream) != cudaSuccess) {
+        throw std::runtime_error("Failed while synchronizing PM assignment kernel");
+      }
+      const auto kernel_assign_stop = std::chrono::steady_clock::now();
+      if (profile != nullptr) {
+        profile->device_kernel_ms +=
+            std::chrono::duration<double, std::milli>(kernel_assign_stop - kernel_assign_start).count();
+      }
+
+      const auto copy_density_start = std::chrono::steady_clock::now();
+      density_device.copyToHost(grid.density(), stream);
+      if (cudaStreamSynchronize(stream) != cudaSuccess) {
+        throw std::runtime_error("Failed while synchronizing D2H density copy");
+      }
+      const auto copy_density_stop = std::chrono::steady_clock::now();
+      if (profile != nullptr) {
+        profile->transfer_d2h_ms += std::chrono::duration<double, std::milli>(copy_density_stop - copy_density_start).count();
+      }
+
+      const double cell_volume = std::pow(options.box_size_mpc_comoving, 3.0) / static_cast<double>(m_shape.cellCount());
+      for (double& density_cell : grid.density()) {
+        density_cell /= cell_volume;
+      }
+
+      solvePoissonPeriodic(grid, options, profile);
+
+      const auto copy_forces_start = std::chrono::steady_clock::now();
+      force_x_device.copyFromHost(grid.force_x(), stream);
+      force_y_device.copyFromHost(grid.force_y(), stream);
+      force_z_device.copyFromHost(grid.force_z(), stream);
+      if (cudaStreamSynchronize(stream) != cudaSuccess) {
+        throw std::runtime_error("Failed while synchronizing H2D force copy");
+      }
+      const auto copy_forces_stop = std::chrono::steady_clock::now();
+      if (profile != nullptr) {
+        profile->transfer_h2d_ms += std::chrono::duration<double, std::milli>(copy_forces_stop - copy_forces_start).count();
+      }
+
+      const auto kernel_interp_start = std::chrono::steady_clock::now();
+      pmCudaInterpolateForcesCic(
+          PmCudaInterpLaunch{pos_x.size(), m_shape.nx, m_shape.ny, m_shape.nz, options.box_size_mpc_comoving},
+          pos_x_device.data(),
+          pos_y_device.data(),
+          pos_z_device.data(),
+          force_x_device.data(),
+          force_y_device.data(),
+          force_z_device.data(),
+          accel_x_device.data(),
+          accel_y_device.data(),
+          accel_z_device.data(),
+          stream);
+      if (cudaStreamSynchronize(stream) != cudaSuccess) {
+        throw std::runtime_error("Failed while synchronizing PM interpolation kernel");
+      }
+      const auto kernel_interp_stop = std::chrono::steady_clock::now();
+      if (profile != nullptr) {
+        profile->device_kernel_ms +=
+            std::chrono::duration<double, std::milli>(kernel_interp_stop - kernel_interp_start).count();
+      }
+
+      const auto copy_accel_start = std::chrono::steady_clock::now();
+      accel_x_device.copyToHost(accel_x, stream);
+      accel_y_device.copyToHost(accel_y, stream);
+      accel_z_device.copyToHost(accel_z, stream);
+      if (cudaStreamSynchronize(stream) != cudaSuccess) {
+        throw std::runtime_error("Failed while synchronizing D2H acceleration copy");
+      }
+      const auto copy_accel_stop = std::chrono::steady_clock::now();
+      if (profile != nullptr) {
+        profile->transfer_d2h_ms += std::chrono::duration<double, std::milli>(copy_accel_stop - copy_accel_start).count();
+      }
+    } catch (...) {
+      (void)cudaStreamDestroy(stream);
+      throw;
+    }
+
+    (void)cudaStreamDestroy(stream);
+    if (profile != nullptr) {
+      profile->bytes_moved += bytesForParticles(pos_x.size()) * 2U;
+      profile->bytes_moved += bytesForGridSweep(m_shape.cellCount()) * 4U;
+    }
+    return;
+#else
+    throw std::runtime_error("PM solve requested execution_policy=cuda, but this build has COSMOSIM_ENABLE_CUDA=OFF");
+#endif
+  }
+
   assignDensity(grid, pos_x, pos_y, pos_z, mass, options, profile);
   solvePoissonPeriodic(grid, options, profile);
   interpolateForces(grid, pos_x, pos_y, pos_z, accel_x, accel_y, accel_z, options, profile);
@@ -605,6 +749,15 @@ void PmSolver::solveForParticles(
 bool PmSolver::fftBackendAvailable() {
 #if COSMOSIM_ENABLE_FFTW
   return true;
+#else
+  return false;
+#endif
+}
+
+bool PmSolver::cudaBackendAvailable() {
+#if COSMOSIM_ENABLE_CUDA
+  int device_count = 0;
+  return cudaGetDeviceCount(&device_count) == cudaSuccess && device_count > 0;
 #else
   return false;
 #endif
