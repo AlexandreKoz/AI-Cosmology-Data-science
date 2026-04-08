@@ -160,6 +160,27 @@
       "output": {
         "outputOnFailure": true
       }
+    },
+    {
+      "name": "test-mpi-release",
+      "configurePreset": "mpi-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "test-cuda-release",
+      "configurePreset": "cuda-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "test-python-debug",
+      "configurePreset": "python-debug",
+      "output": {
+        "outputOnFailure": true
+      }
     }
   ]
 }
