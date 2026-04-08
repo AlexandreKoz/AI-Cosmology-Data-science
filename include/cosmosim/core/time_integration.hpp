@@ -92,6 +92,8 @@ class StageScheduler {
   [[nodiscard]] static std::span<const IntegrationStage> kickDriftKickOrder();
 };
 
+[[nodiscard]] bool isCanonicalIntegrationStageOrder(std::span<const IntegrationStage> ordered_stages);
+
 // Single authoritative step orchestrator for current baseline stepping.
 class StepOrchestrator {
  public:

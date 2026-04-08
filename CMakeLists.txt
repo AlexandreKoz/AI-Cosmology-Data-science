@@ -178,7 +178,8 @@ add_library(cosmosim_analysis STATIC
 add_library(cosmosim_parallel STATIC
   src/parallel/parallel_module.cpp
   src/parallel/distributed_memory.cpp)
-add_library(cosmosim_utils STATIC src/utils/utils_module.cpp)
+add_library(cosmosim_utils STATIC
+  src/utils/utils_module.cpp)
 
 set(COSMOSIM_MODULE_LIBS
   cosmosim_gravity
@@ -267,6 +268,10 @@ if(COSMOSIM_ENABLE_TESTS)
   add_executable(test_integration_harness tests/integration/test_integration_harness.cpp)
   target_link_libraries(test_integration_harness PRIVATE cosmosim_all)
   add_test(NAME integration_harness COMMAND test_integration_harness)
+
+  add_executable(test_integration_reference_workflow tests/integration/test_reference_workflow_end_to_end.cpp)
+  target_link_libraries(test_integration_reference_workflow PRIVATE cosmosim_all)
+  add_test(NAME integration_reference_workflow COMMAND test_integration_reference_workflow)
 
   add_executable(test_unit_simulation_state tests/unit/test_simulation_state.cpp)
   target_link_libraries(test_unit_simulation_state PRIVATE cosmosim_all)
@@ -592,6 +597,10 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
   add_executable(bench_mini_run_pipeline bench/mini/bench_mini_run_pipeline.cpp)
   target_link_libraries(bench_mini_run_pipeline PRIVATE cosmosim_all)
   target_include_directories(bench_mini_run_pipeline PRIVATE ${PROJECT_SOURCE_DIR})
+
+  add_executable(bench_reference_workflow bench/mini/bench_reference_workflow.cpp)
+  target_link_libraries(bench_reference_workflow PRIVATE cosmosim_all)
+  target_include_directories(bench_reference_workflow PRIVATE ${PROJECT_SOURCE_DIR})
 
   add_executable(bench_layout_smoke bench/bench_layout_smoke.cpp)
   target_link_libraries(bench_layout_smoke PRIVATE cosmosim_core)
