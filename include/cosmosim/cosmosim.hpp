@@ -5,6 +5,7 @@
 #include <string_view>
 
 #include "cosmosim/amr/amr_module.hpp"
+#include "cosmosim/amr/amr_framework.hpp"
 #include "cosmosim/analysis/analysis_module.hpp"
 #include "cosmosim/core/config.hpp"
 #include "cosmosim/core/cosmology.hpp"
