@@ -50,9 +50,15 @@ void populateState(cosmosim::core::SimulationState& state) {
 
   state.black_holes.resize(1);
   state.black_holes.particle_index[0] = 4;
+  state.black_holes.host_cell_index[0] = 3;
   state.black_holes.subgrid_mass_code[0] = 12.0;
   state.black_holes.accretion_rate_code[0] = 0.1;
   state.black_holes.feedback_energy_code[0] = 0.8;
+  state.black_holes.eddington_ratio[0] = 0.2;
+  state.black_holes.cumulative_accreted_mass_code[0] = 0.3;
+  state.black_holes.cumulative_feedback_energy_code[0] = 1.2;
+  state.black_holes.duty_cycle_active_time_code[0] = 4.0;
+  state.black_holes.duty_cycle_total_time_code[0] = 5.0;
 
   state.tracers.resize(0);
 
@@ -143,9 +149,23 @@ void testRestartRoundtrip() {
   assert(restored.state.star_particles.particle_index == state.star_particles.particle_index);
   assert(restored.state.star_particles.formation_scale_factor == state.star_particles.formation_scale_factor);
   assert(restored.state.black_holes.particle_index == state.black_holes.particle_index);
+  assert(restored.state.black_holes.host_cell_index == state.black_holes.host_cell_index);
   assert(restored.state.black_holes.subgrid_mass_code == state.black_holes.subgrid_mass_code);
   assert(restored.state.black_holes.accretion_rate_code == state.black_holes.accretion_rate_code);
   assert(restored.state.black_holes.feedback_energy_code == state.black_holes.feedback_energy_code);
+  assert(restored.state.black_holes.eddington_ratio == state.black_holes.eddington_ratio);
+  assert(
+      restored.state.black_holes.cumulative_accreted_mass_code ==
+      state.black_holes.cumulative_accreted_mass_code);
+  assert(
+      restored.state.black_holes.cumulative_feedback_energy_code ==
+      state.black_holes.cumulative_feedback_energy_code);
+  assert(
+      restored.state.black_holes.duty_cycle_active_time_code ==
+      state.black_holes.duty_cycle_active_time_code);
+  assert(
+      restored.state.black_holes.duty_cycle_total_time_code ==
+      state.black_holes.duty_cycle_total_time_code);
   assert(restored.state.species.count_by_species == state.species.count_by_species);
   assert(restored.integrator_state.step_index == integrator_state.step_index);
   assert(std::abs(restored.integrator_state.current_time_code - integrator_state.current_time_code) < 1.0e-15);

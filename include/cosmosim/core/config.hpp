@@ -68,6 +68,20 @@ struct PhysicsConfig {
   std::uint64_t fb_random_seed = 42424242ull;
   std::string stellar_evolution_table_path;
   double stellar_evolution_hubble_time_years = 1.44e10;
+  bool enable_black_hole_agn = false;
+  double bh_seed_halo_mass_threshold_code = 1.0e3;
+  double bh_seed_mass_code = 1.0;
+  std::uint32_t bh_seed_max_per_cell = 1;
+  double bh_alpha_bondi = 1.0;
+  bool bh_use_eddington_cap = true;
+  double bh_epsilon_r = 0.1;
+  double bh_epsilon_f = 0.05;
+  double bh_feedback_coupling_efficiency = 1.0;
+  double bh_duty_cycle_active_edd_ratio_threshold = 0.01;
+  double bh_proton_mass_si = 1.67262192369e-27;
+  double bh_thomson_cross_section_si = 6.6524587321e-29;
+  double bh_newton_g_si = 6.67430e-11;
+  double bh_speed_of_light_si = 2.99792458e8;
 };
 
 struct OutputConfig {

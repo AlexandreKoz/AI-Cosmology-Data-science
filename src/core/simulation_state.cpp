@@ -199,9 +199,15 @@ bool StarParticleSidecar::isConsistent() const noexcept {
 void BlackHoleParticleSidecar::resize(std::size_t count) {
   // Black-hole sidecar rows map 1:1 to BH species-local particle indices.
   particle_index.resize(count);
+  host_cell_index.resize(count);
   subgrid_mass_code.resize(count);
   accretion_rate_code.resize(count);
   feedback_energy_code.resize(count);
+  eddington_ratio.resize(count);
+  cumulative_accreted_mass_code.resize(count);
+  cumulative_feedback_energy_code.resize(count);
+  duty_cycle_active_time_code.resize(count);
+  duty_cycle_total_time_code.resize(count);
 }
 
 // Report black-hole sidecar row count.
@@ -210,8 +216,11 @@ std::size_t BlackHoleParticleSidecar::size() const noexcept { return particle_in
 // Validate black-hole metadata lane consistency.
 bool BlackHoleParticleSidecar::isConsistent() const noexcept {
   const std::size_t expected = particle_index.size();
-  return subgrid_mass_code.size() == expected && accretion_rate_code.size() == expected &&
-         feedback_energy_code.size() == expected;
+  return host_cell_index.size() == expected && subgrid_mass_code.size() == expected &&
+         accretion_rate_code.size() == expected && feedback_energy_code.size() == expected &&
+         eddington_ratio.size() == expected && cumulative_accreted_mass_code.size() == expected &&
+         cumulative_feedback_energy_code.size() == expected &&
+         duty_cycle_active_time_code.size() == expected && duty_cycle_total_time_code.size() == expected;
 }
 
 // Resize tracer metadata lanes indexed by tracer-local rows.

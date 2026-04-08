@@ -144,6 +144,7 @@ add_library(cosmosim_amr STATIC src/amr/amr_module.cpp)
 add_library(cosmosim_physics STATIC
   src/physics/physics_module.cpp
   src/physics/cooling_heating.cpp
+  src/physics/black_hole_agn.cpp
   src/physics/star_formation.cpp
   src/physics/stellar_evolution.cpp
   src/physics/stellar_feedback.cpp)
@@ -267,6 +268,9 @@ if(COSMOSIM_ENABLE_TESTS)
   add_executable(test_unit_star_formation tests/unit/test_star_formation.cpp)
   target_link_libraries(test_unit_star_formation PRIVATE cosmosim_all)
   add_test(NAME unit_star_formation COMMAND test_unit_star_formation)
+  add_executable(test_unit_black_hole_agn tests/unit/test_black_hole_agn.cpp)
+  target_link_libraries(test_unit_black_hole_agn PRIVATE cosmosim_all)
+  add_test(NAME unit_black_hole_agn COMMAND test_unit_black_hole_agn)
 
   add_executable(test_unit_stellar_evolution tests/unit/test_stellar_evolution.cpp)
   target_link_libraries(test_unit_stellar_evolution PRIVATE cosmosim_all)
@@ -286,6 +290,9 @@ if(COSMOSIM_ENABLE_TESTS)
   add_executable(test_integration_star_formation_box tests/integration/test_star_formation_box.cpp)
   target_link_libraries(test_integration_star_formation_box PRIVATE cosmosim_all)
   add_test(NAME integration_star_formation_box COMMAND test_integration_star_formation_box)
+  add_executable(test_integration_black_hole_agn_toy tests/integration/test_black_hole_agn_toy.cpp)
+  target_link_libraries(test_integration_black_hole_agn_toy PRIVATE cosmosim_all)
+  add_test(NAME integration_black_hole_agn_toy COMMAND test_integration_black_hole_agn_toy)
   add_executable(test_integration_stellar_feedback_box tests/integration/test_stellar_feedback_box.cpp)
   target_link_libraries(test_integration_stellar_feedback_box PRIVATE cosmosim_all)
   add_test(NAME integration_stellar_feedback_box COMMAND test_integration_stellar_feedback_box)
@@ -464,6 +471,8 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
 
   add_executable(bench_star_formation_spawn bench/bench_star_formation_spawn.cpp)
   target_link_libraries(bench_star_formation_spawn PRIVATE cosmosim_all)
+  add_executable(bench_black_hole_agn_sparse_update bench/bench_black_hole_agn_sparse_update.cpp)
+  target_link_libraries(bench_black_hole_agn_sparse_update PRIVATE cosmosim_all)
   add_executable(bench_stellar_feedback_deposition bench/bench_stellar_feedback_deposition.cpp)
   target_link_libraries(bench_stellar_feedback_deposition PRIVATE cosmosim_all)
 

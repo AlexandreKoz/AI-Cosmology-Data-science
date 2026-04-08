@@ -309,6 +309,27 @@ void validateConfig(const SimulationConfig& config) {
   if (config.physics.stellar_evolution_hubble_time_years <= 0.0) {
     throw ConfigError("physics.stellar_evolution_hubble_time_years must be > 0");
   }
+  if (config.physics.bh_seed_halo_mass_threshold_code <= 0.0 || config.physics.bh_seed_mass_code <= 0.0 ||
+      config.physics.bh_seed_max_per_cell == 0) {
+    throw ConfigError("physics BH seeding parameters must be > 0");
+  }
+  if (config.physics.bh_alpha_bondi <= 0.0) {
+    throw ConfigError("physics.bh_alpha_bondi must be > 0");
+  }
+  if (config.physics.bh_epsilon_r <= 0.0 || config.physics.bh_epsilon_r > 1.0 ||
+      config.physics.bh_epsilon_f < 0.0 || config.physics.bh_epsilon_f > 1.0 ||
+      config.physics.bh_feedback_coupling_efficiency < 0.0 ||
+      config.physics.bh_feedback_coupling_efficiency > 1.0) {
+    throw ConfigError("physics BH efficiencies must be within conservative physical bounds");
+  }
+  if (config.physics.bh_duty_cycle_active_edd_ratio_threshold < 0.0 ||
+      config.physics.bh_duty_cycle_active_edd_ratio_threshold > 1.0) {
+    throw ConfigError("physics.bh_duty_cycle_active_edd_ratio_threshold must be in [0, 1]");
+  }
+  if (config.physics.bh_proton_mass_si <= 0.0 || config.physics.bh_thomson_cross_section_si <= 0.0 ||
+      config.physics.bh_newton_g_si <= 0.0 || config.physics.bh_speed_of_light_si <= 0.0) {
+    throw ConfigError("physics BH constants must be > 0");
+  }
   const ModePolicy policy = buildModePolicy(config.mode);
   validateModePolicy(config, policy);
 }
@@ -388,6 +409,25 @@ void validateConfig(const SimulationConfig& config) {
   stream << "stellar_evolution_table_path = " << frozen.config.physics.stellar_evolution_table_path << '\n';
   stream << "stellar_evolution_hubble_time_years = "
          << frozen.config.physics.stellar_evolution_hubble_time_years << '\n';
+  stream << "enable_black_hole_agn = " << (frozen.config.physics.enable_black_hole_agn ? "true" : "false")
+         << '\n';
+  stream << "bh_seed_halo_mass_threshold_code = " << frozen.config.physics.bh_seed_halo_mass_threshold_code
+         << '\n';
+  stream << "bh_seed_mass_code = " << frozen.config.physics.bh_seed_mass_code << '\n';
+  stream << "bh_seed_max_per_cell = " << frozen.config.physics.bh_seed_max_per_cell << '\n';
+  stream << "bh_alpha_bondi = " << frozen.config.physics.bh_alpha_bondi << '\n';
+  stream << "bh_use_eddington_cap = " << (frozen.config.physics.bh_use_eddington_cap ? "true" : "false")
+         << '\n';
+  stream << "bh_epsilon_r = " << frozen.config.physics.bh_epsilon_r << '\n';
+  stream << "bh_epsilon_f = " << frozen.config.physics.bh_epsilon_f << '\n';
+  stream << "bh_feedback_coupling_efficiency = "
+         << frozen.config.physics.bh_feedback_coupling_efficiency << '\n';
+  stream << "bh_duty_cycle_active_edd_ratio_threshold = "
+         << frozen.config.physics.bh_duty_cycle_active_edd_ratio_threshold << '\n';
+  stream << "bh_proton_mass_si = " << frozen.config.physics.bh_proton_mass_si << '\n';
+  stream << "bh_thomson_cross_section_si = " << frozen.config.physics.bh_thomson_cross_section_si << '\n';
+  stream << "bh_newton_g_si = " << frozen.config.physics.bh_newton_g_si << '\n';
+  stream << "bh_speed_of_light_si = " << frozen.config.physics.bh_speed_of_light_si << '\n';
   stream << "\n[output]\n";
   stream << "run_name = " << frozen.config.output.run_name << '\n';
   stream << "output_directory = " << frozen.config.output.output_directory << '\n';
@@ -592,6 +632,48 @@ void validateConfig(const SimulationConfig& config) {
   frozen.config.physics.stellar_evolution_hubble_time_years = parseFloating(
       requireString(entries, consumed, "physics.stellar_evolution_hubble_time_years", "1.44e10"),
       "physics.stellar_evolution_hubble_time_years");
+  frozen.config.physics.enable_black_hole_agn = parseBool(
+      requireString(entries, consumed, "physics.enable_black_hole_agn", "false"),
+      "physics.enable_black_hole_agn");
+  frozen.config.physics.bh_seed_halo_mass_threshold_code = parseFloating(
+      requireString(entries, consumed, "physics.bh_seed_halo_mass_threshold_code", "1.0e3"),
+      "physics.bh_seed_halo_mass_threshold_code");
+  frozen.config.physics.bh_seed_mass_code = parseFloating(
+      requireString(entries, consumed, "physics.bh_seed_mass_code", "1.0"),
+      "physics.bh_seed_mass_code");
+  frozen.config.physics.bh_seed_max_per_cell = static_cast<std::uint32_t>(parseNumber<unsigned>(
+      requireString(entries, consumed, "physics.bh_seed_max_per_cell", "1"),
+      "physics.bh_seed_max_per_cell"));
+  frozen.config.physics.bh_alpha_bondi = parseFloating(
+      requireString(entries, consumed, "physics.bh_alpha_bondi", "1.0"),
+      "physics.bh_alpha_bondi");
+  frozen.config.physics.bh_use_eddington_cap = parseBool(
+      requireString(entries, consumed, "physics.bh_use_eddington_cap", "true"),
+      "physics.bh_use_eddington_cap");
+  frozen.config.physics.bh_epsilon_r = parseFloating(
+      requireString(entries, consumed, "physics.bh_epsilon_r", "0.1"),
+      "physics.bh_epsilon_r");
+  frozen.config.physics.bh_epsilon_f = parseFloating(
+      requireString(entries, consumed, "physics.bh_epsilon_f", "0.05"),
+      "physics.bh_epsilon_f");
+  frozen.config.physics.bh_feedback_coupling_efficiency = parseFloating(
+      requireString(entries, consumed, "physics.bh_feedback_coupling_efficiency", "1.0"),
+      "physics.bh_feedback_coupling_efficiency");
+  frozen.config.physics.bh_duty_cycle_active_edd_ratio_threshold = parseFloating(
+      requireString(entries, consumed, "physics.bh_duty_cycle_active_edd_ratio_threshold", "0.01"),
+      "physics.bh_duty_cycle_active_edd_ratio_threshold");
+  frozen.config.physics.bh_proton_mass_si = parseFloating(
+      requireString(entries, consumed, "physics.bh_proton_mass_si", "1.67262192369e-27"),
+      "physics.bh_proton_mass_si");
+  frozen.config.physics.bh_thomson_cross_section_si = parseFloating(
+      requireString(entries, consumed, "physics.bh_thomson_cross_section_si", "6.6524587321e-29"),
+      "physics.bh_thomson_cross_section_si");
+  frozen.config.physics.bh_newton_g_si = parseFloating(
+      requireString(entries, consumed, "physics.bh_newton_g_si", "6.67430e-11"),
+      "physics.bh_newton_g_si");
+  frozen.config.physics.bh_speed_of_light_si = parseFloating(
+      requireString(entries, consumed, "physics.bh_speed_of_light_si", "2.99792458e8"),
+      "physics.bh_speed_of_light_si");
 
   frozen.config.output.run_name =
       requireString(entries, consumed, "output.run_name", frozen.config.output.run_name);

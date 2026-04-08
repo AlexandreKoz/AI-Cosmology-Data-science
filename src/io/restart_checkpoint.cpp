@@ -336,9 +336,35 @@ void writeStateGroup(hid_t root, const core::SimulationState& state) {
 
   Hdf5Handle bh_group(openOrCreateGroup(state_group.get(), "black_holes"));
   writeDataset1d(bh_group.get(), "particle_index", H5T_STD_U32LE, H5T_NATIVE_UINT32, state.black_holes.particle_index);
+  writeDataset1d(bh_group.get(), "host_cell_index", H5T_STD_U32LE, H5T_NATIVE_UINT32, state.black_holes.host_cell_index);
   writeDataset1d(bh_group.get(), "subgrid_mass_code", H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE, state.black_holes.subgrid_mass_code);
   writeDataset1d(bh_group.get(), "accretion_rate_code", H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE, state.black_holes.accretion_rate_code);
   writeDataset1d(bh_group.get(), "feedback_energy_code", H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE, state.black_holes.feedback_energy_code);
+  writeDataset1d(bh_group.get(), "eddington_ratio", H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE, state.black_holes.eddington_ratio);
+  writeDataset1d(
+      bh_group.get(),
+      "cumulative_accreted_mass_code",
+      H5T_IEEE_F64LE,
+      H5T_NATIVE_DOUBLE,
+      state.black_holes.cumulative_accreted_mass_code);
+  writeDataset1d(
+      bh_group.get(),
+      "cumulative_feedback_energy_code",
+      H5T_IEEE_F64LE,
+      H5T_NATIVE_DOUBLE,
+      state.black_holes.cumulative_feedback_energy_code);
+  writeDataset1d(
+      bh_group.get(),
+      "duty_cycle_active_time_code",
+      H5T_IEEE_F64LE,
+      H5T_NATIVE_DOUBLE,
+      state.black_holes.duty_cycle_active_time_code);
+  writeDataset1d(
+      bh_group.get(),
+      "duty_cycle_total_time_code",
+      H5T_IEEE_F64LE,
+      H5T_NATIVE_DOUBLE,
+      state.black_holes.duty_cycle_total_time_code);
 
   Hdf5Handle tracer_group(openOrCreateGroup(state_group.get(), "tracers"));
   writeDataset1d(tracer_group.get(), "particle_index", H5T_STD_U32LE, H5T_NATIVE_UINT32, state.tracers.particle_index);
@@ -429,11 +455,21 @@ void readStateGroup(hid_t root, core::SimulationState& state) {
 
   Hdf5Handle bh_group(H5Gopen2(state_group.get(), "black_holes", H5P_DEFAULT));
   state.black_holes.particle_index = readDataset1dAligned<std::uint32_t>(bh_group.get(), "particle_index", H5T_NATIVE_UINT32);
+  state.black_holes.host_cell_index = readDataset1dAligned<std::uint32_t>(bh_group.get(), "host_cell_index", H5T_NATIVE_UINT32);
   state.black_holes.subgrid_mass_code = readDataset1dAligned<double>(bh_group.get(), "subgrid_mass_code", H5T_NATIVE_DOUBLE);
   state.black_holes.accretion_rate_code =
       readDataset1dAligned<double>(bh_group.get(), "accretion_rate_code", H5T_NATIVE_DOUBLE);
   state.black_holes.feedback_energy_code =
       readDataset1dAligned<double>(bh_group.get(), "feedback_energy_code", H5T_NATIVE_DOUBLE);
+  state.black_holes.eddington_ratio = readDataset1dAligned<double>(bh_group.get(), "eddington_ratio", H5T_NATIVE_DOUBLE);
+  state.black_holes.cumulative_accreted_mass_code =
+      readDataset1dAligned<double>(bh_group.get(), "cumulative_accreted_mass_code", H5T_NATIVE_DOUBLE);
+  state.black_holes.cumulative_feedback_energy_code =
+      readDataset1dAligned<double>(bh_group.get(), "cumulative_feedback_energy_code", H5T_NATIVE_DOUBLE);
+  state.black_holes.duty_cycle_active_time_code =
+      readDataset1dAligned<double>(bh_group.get(), "duty_cycle_active_time_code", H5T_NATIVE_DOUBLE);
+  state.black_holes.duty_cycle_total_time_code =
+      readDataset1dAligned<double>(bh_group.get(), "duty_cycle_total_time_code", H5T_NATIVE_DOUBLE);
 
   Hdf5Handle tracer_group(H5Gopen2(state_group.get(), "tracers", H5P_DEFAULT));
   state.tracers.particle_index = readDataset1dAligned<std::uint32_t>(tracer_group.get(), "particle_index", H5T_NATIVE_UINT32);
@@ -546,9 +582,15 @@ std::uint64_t restartPayloadIntegrityHash(const RestartWritePayload& payload) {
   append_any_vec(state.star_particles.birth_mass_code);
   append_any_vec(state.star_particles.metallicity_mass_fraction);
   append_any_vec(state.black_holes.particle_index);
+  append_any_vec(state.black_holes.host_cell_index);
   append_any_vec(state.black_holes.subgrid_mass_code);
   append_any_vec(state.black_holes.accretion_rate_code);
   append_any_vec(state.black_holes.feedback_energy_code);
+  append_any_vec(state.black_holes.eddington_ratio);
+  append_any_vec(state.black_holes.cumulative_accreted_mass_code);
+  append_any_vec(state.black_holes.cumulative_feedback_energy_code);
+  append_any_vec(state.black_holes.duty_cycle_active_time_code);
+  append_any_vec(state.black_holes.duty_cycle_total_time_code);
   append_any_vec(state.tracers.particle_index);
   append_any_vec(state.tracers.parent_particle_id);
   append_any_vec(state.tracers.injection_step);
