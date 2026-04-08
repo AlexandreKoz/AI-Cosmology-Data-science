@@ -141,7 +141,9 @@ add_library(cosmosim_hydro STATIC
   src/hydro/hydro_core_solver.cpp
   src/hydro/hydro_reconstruction.cpp
   src/hydro/hydro_riemann.cpp)
-add_library(cosmosim_amr STATIC src/amr/amr_module.cpp)
+add_library(cosmosim_amr STATIC
+  src/amr/amr_module.cpp
+  src/amr/amr_framework.cpp)
 add_library(cosmosim_physics STATIC
   src/physics/physics_module.cpp
   src/physics/cooling_heating.cpp
@@ -341,6 +343,11 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_unit_tree_gravity PRIVATE cosmosim_gravity)
   add_test(NAME unit_tree_gravity COMMAND test_unit_tree_gravity)
 
+
+  add_executable(test_unit_amr_refinement tests/unit/test_amr_refinement.cpp)
+  target_link_libraries(test_unit_amr_refinement PRIVATE cosmosim_amr)
+  add_test(NAME unit_amr_refinement COMMAND test_unit_amr_refinement)
+
   add_executable(test_unit_hydro_core_solver tests/unit/test_hydro_core_solver.cpp)
   target_link_libraries(test_unit_hydro_core_solver PRIVATE cosmosim_hydro)
   add_test(NAME unit_hydro_core_solver COMMAND test_unit_hydro_core_solver)
@@ -349,6 +356,11 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_integration_hydro_sod_like PRIVATE cosmosim_hydro)
   add_test(NAME integration_hydro_sod_like COMMAND test_integration_hydro_sod_like)
 
+
+
+  add_executable(test_integration_amr_static_refinement_sync tests/integration/test_amr_static_refinement_sync.cpp)
+  target_link_libraries(test_integration_amr_static_refinement_sync PRIVATE cosmosim_amr)
+  add_test(NAME integration_amr_static_refinement_sync COMMAND test_integration_amr_static_refinement_sync)
 
   add_executable(test_integration_simulation_mode_toy_runs tests/integration/test_simulation_mode_toy_runs.cpp)
   target_link_libraries(test_integration_simulation_mode_toy_runs PRIVATE cosmosim_core)
@@ -467,6 +479,10 @@ if(COSMOSIM_ENABLE_BENCHMARKS)
 
   add_executable(bench_tree_pm_coupling bench/bench_tree_pm_coupling.cpp)
   target_link_libraries(bench_tree_pm_coupling PRIVATE cosmosim_gravity)
+
+
+  add_executable(bench_amr_regrid_sync bench/bench_amr_regrid_sync.cpp)
+  target_link_libraries(bench_amr_regrid_sync PRIVATE cosmosim_amr)
 
   add_executable(bench_hydro_face_sweep bench/bench_hydro_face_sweep.cpp)
   target_link_libraries(bench_hydro_face_sweep PRIVATE cosmosim_hydro)
