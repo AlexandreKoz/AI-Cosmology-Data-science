@@ -524,6 +524,13 @@ if(COSMOSIM_ENABLE_TESTS)
   add_test(NAME integration_docs_scaffold
            COMMAND ${CMAKE_COMMAND} -P "${CMAKE_BINARY_DIR}/test_docs_scaffold.cmake")
 
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/integration/test_release_readiness_artifacts.cmake.in"
+    "${CMAKE_BINARY_DIR}/test_release_readiness_artifacts.cmake"
+    @ONLY)
+  add_test(NAME integration_release_readiness_artifacts
+           COMMAND ${CMAKE_COMMAND} -P "${CMAKE_BINARY_DIR}/test_release_readiness_artifacts.cmake")
+
   add_executable(
     test_validation_unit
     tests/validation/test_validation_unit.cpp
