@@ -39,9 +39,15 @@ void compact_front(cosmosim::core::SimulationState& state, std::size_t keep_coun
   state.star_particles.metallicity_mass_fraction.resize(state.star_particles.particle_index.size());
 
   compact_index_sidecar(state.black_holes.particle_index);
+  state.black_holes.host_cell_index.resize(state.black_holes.particle_index.size());
   state.black_holes.subgrid_mass_code.resize(state.black_holes.particle_index.size());
   state.black_holes.accretion_rate_code.resize(state.black_holes.particle_index.size());
   state.black_holes.feedback_energy_code.resize(state.black_holes.particle_index.size());
+  state.black_holes.eddington_ratio.resize(state.black_holes.particle_index.size());
+  state.black_holes.cumulative_accreted_mass_code.resize(state.black_holes.particle_index.size());
+  state.black_holes.cumulative_feedback_energy_code.resize(state.black_holes.particle_index.size());
+  state.black_holes.duty_cycle_active_time_code.resize(state.black_holes.particle_index.size());
+  state.black_holes.duty_cycle_total_time_code.resize(state.black_holes.particle_index.size());
 
   compact_index_sidecar(state.tracers.particle_index);
   state.tracers.parent_particle_id.resize(state.tracers.particle_index.size());

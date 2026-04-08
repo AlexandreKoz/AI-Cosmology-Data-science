@@ -30,6 +30,7 @@
 #include "cosmosim/physics/physics_module.hpp"
 #include "cosmosim/physics/cooling_heating.hpp"
 #include "cosmosim/physics/star_formation.hpp"
+#include "cosmosim/physics/black_hole_agn.hpp"
 #include "cosmosim/physics/stellar_evolution.hpp"
 #include "cosmosim/physics/stellar_feedback.hpp"
 #include "cosmosim/utils/utils_module.hpp"

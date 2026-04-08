@@ -149,6 +149,39 @@ fb_neighbor_count = 4
   assert(threw);
 }
 
+void testBlackHoleAgnConfigKeysAndValidation() {
+  const std::string good_text = R"(
+[mode]
+mode = zoom_in
+[physics]
+enable_black_hole_agn = true
+bh_seed_halo_mass_threshold_code = 500
+bh_seed_mass_code = 2.5
+bh_seed_max_per_cell = 2
+bh_alpha_bondi = 3.0
+bh_use_eddington_cap = true
+bh_epsilon_r = 0.15
+bh_epsilon_f = 0.2
+bh_feedback_coupling_efficiency = 0.8
+bh_duty_cycle_active_edd_ratio_threshold = 0.03
+)";
+  const auto frozen = cosmosim::core::loadFrozenConfigFromString(good_text, "bh_good");
+  assert(frozen.config.physics.enable_black_hole_agn);
+  assert(frozen.config.physics.bh_seed_halo_mass_threshold_code == 500.0);
+  assert(frozen.config.physics.bh_seed_max_per_cell == 2);
+  assert(frozen.config.physics.bh_alpha_bondi == 3.0);
+
+  const std::string bad_text =
+      "[mode]\nmode = zoom_in\n[physics]\nbh_feedback_coupling_efficiency = 1.3\n";
+  bool threw = false;
+  try {
+    (void)cosmosim::core::loadFrozenConfigFromString(bad_text, "bh_bad");
+  } catch (const cosmosim::core::ConfigError&) {
+    threw = true;
+  }
+  assert(threw);
+}
+
 }  // namespace
 
 int main() {
@@ -160,5 +193,6 @@ int main() {
   testBoundaryModeValidation();
   testDefaultsCanonicalizationAndDeterminism();
   testFeedbackConfigKeysAndValidation();
+  testBlackHoleAgnConfigKeysAndValidation();
   return 0;
 }

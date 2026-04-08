@@ -108,9 +108,15 @@ struct StarParticleSidecar {
 struct BlackHoleParticleSidecar {
   // Black-hole subgrid metadata sidecar.
   AlignedVector<std::uint32_t> particle_index;
+  AlignedVector<std::uint32_t> host_cell_index;
   AlignedVector<double> subgrid_mass_code;
   AlignedVector<double> accretion_rate_code;
   AlignedVector<double> feedback_energy_code;
+  AlignedVector<double> eddington_ratio;
+  AlignedVector<double> cumulative_accreted_mass_code;
+  AlignedVector<double> cumulative_feedback_energy_code;
+  AlignedVector<double> duty_cycle_active_time_code;
+  AlignedVector<double> duty_cycle_total_time_code;
 
   void resize(std::size_t count);
   [[nodiscard]] std::size_t size() const noexcept;
