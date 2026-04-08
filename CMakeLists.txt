@@ -226,6 +226,11 @@ if(COSMOSIM_ENABLE_TESTS)
   target_link_libraries(test_unit_header_smoke PRIVATE cosmosim_all)
   add_test(NAME unit_header_smoke COMMAND test_unit_header_smoke)
 
+  add_executable(test_unit_benchmark_harness_smoke tests/unit/test_benchmark_harness_smoke.cpp)
+  target_link_libraries(test_unit_benchmark_harness_smoke PRIVATE cosmosim_core)
+  target_include_directories(test_unit_benchmark_harness_smoke PRIVATE ${PROJECT_SOURCE_DIR})
+  add_test(NAME unit_benchmark_harness_smoke COMMAND test_unit_benchmark_harness_smoke)
+
   add_executable(test_integration_harness tests/integration/test_integration_harness.cpp)
   target_link_libraries(test_integration_harness PRIVATE cosmosim_all)
   add_test(NAME integration_harness COMMAND test_integration_harness)
@@ -490,6 +495,26 @@ if(COSMOSIM_ENABLE_TESTS)
 endif()
 
 if(COSMOSIM_ENABLE_BENCHMARKS)
+  add_executable(bench_gravity_kernels bench/gravity/bench_gravity_kernels.cpp)
+  target_link_libraries(bench_gravity_kernels PRIVATE cosmosim_gravity)
+  target_include_directories(bench_gravity_kernels PRIVATE ${PROJECT_SOURCE_DIR})
+
+  add_executable(bench_hydro_kernels bench/hydro/bench_hydro_kernels.cpp)
+  target_link_libraries(bench_hydro_kernels PRIVATE cosmosim_hydro)
+  target_include_directories(bench_hydro_kernels PRIVATE ${PROJECT_SOURCE_DIR})
+
+  add_executable(bench_amr_regrid_kernel bench/amr/bench_amr_regrid_kernel.cpp)
+  target_link_libraries(bench_amr_regrid_kernel PRIVATE cosmosim_amr)
+  target_include_directories(bench_amr_regrid_kernel PRIVATE ${PROJECT_SOURCE_DIR})
+
+  add_executable(bench_io_restart_kernel bench/io/bench_io_restart_kernel.cpp)
+  target_link_libraries(bench_io_restart_kernel PRIVATE cosmosim_io)
+  target_include_directories(bench_io_restart_kernel PRIVATE ${PROJECT_SOURCE_DIR})
+
+  add_executable(bench_mini_run_pipeline bench/mini/bench_mini_run_pipeline.cpp)
+  target_link_libraries(bench_mini_run_pipeline PRIVATE cosmosim_all)
+  target_include_directories(bench_mini_run_pipeline PRIVATE ${PROJECT_SOURCE_DIR})
+
   add_executable(bench_layout_smoke bench/bench_layout_smoke.cpp)
   target_link_libraries(bench_layout_smoke PRIVATE cosmosim_core)
   target_include_directories(bench_layout_smoke PRIVATE ${PROJECT_SOURCE_DIR}/src)
