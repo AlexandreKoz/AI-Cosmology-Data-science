@@ -19,6 +19,32 @@ This contract defines the minimum acceptable quality bar for implementation prom
 - No hidden interface drift.
 - No silent schema/config/provenance changes.
 - No ambiguous unit/frame naming where confusion is possible.
+- Do not claim completion when required preset paths are not all validated.
+
+## Repair validation gate (required commands)
+
+Run and report these exact paths for infrastructure repair work:
+
+```bash
+cmake --preset cpu-only-debug
+cmake --build --preset build-cpu-debug
+ctest --preset test-cpu-debug --output-on-failure
+
+cmake --preset hdf5-debug
+cmake --build --preset build-hdf5-debug
+ctest --preset test-hdf5-debug --output-on-failure
+
+cmake --preset pm-hdf5-fftw-debug
+cmake --build --preset build-pm-hdf5-fftw-debug
+ctest --preset test-pm-hdf5-fftw-debug --output-on-failure
+```
+
+If a dependency is missing or a path fails, report the exact failing command and error output and stop with a blocked status.
+
+## Layering and ownership guardrails
+
+- `core` (including config/state/provenance flows) must not silently gain dependencies on `analysis`, `physics`, or workflow orchestration code.
+- New cross-layer coupling requires an explicit architecture decision entry in `docs/architecture/decision_log.md`.
 
 ## Reviewer checklist
 
@@ -27,6 +53,7 @@ This contract defines the minimum acceptable quality bar for implementation prom
 - Do tests cover local invariants and a broader pipeline path?
 - Is there at least one benchmark/profiling hook for costly paths?
 - Are naming and ownership rules respected?
+- Are all required preset paths either passing or explicitly blocked with exact command evidence?
 
 ## Documentation coupling rules
 
