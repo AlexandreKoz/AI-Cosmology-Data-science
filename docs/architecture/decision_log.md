@@ -1,39 +1,5 @@
 # Architecture decision log
 
-## 2026-04-09 — ADR-REPAIR-CONTROL-PLANE-005: Install repo-local Codex repair control plane
-
-### Status
-Accepted
-
-### Context
-Repair work has repeatedly depended on prompt-local guidance, which can drift across sessions. The repository needed durable, auto-loaded Codex instructions that enforce the same infrastructure validation gates and reporting behavior each run.
-
-### Decision
-Adopt a repository-root `AGENTS.md` as the Codex control plane for infrastructure repair work with these hard requirements:
-
-1. Run the three required debug validation paths using presets in `CMakePresets.json`:
-   - CPU-only (`cpu-only-debug`)
-   - HDF5 (`hdf5-debug`)
-   - PM + HDF5 + FFTW (`pm-hdf5-fftw-debug`)
-2. Do not claim completion when any required path is blocked or failing.
-3. Report the exact failing command and terminal error, then stop with blocked status.
-4. Forbid unrelated rewrites during repair tasks.
-5. Enforce layer boundaries so core/config/state/provenance do not silently depend on analysis/physics/workflow code.
-6. Require same-patch docs updates for config/schema/restart/provenance/architecture changes.
-
-Also add a small repair recap template for consistent blocked/pass reporting.
-
-### Consequences
-- Positive: Reduces session-to-session repair drift.
-- Positive: Prevents false closure when dependency-enabled paths are unverified.
-- Positive: Keeps architecture boundary changes explicit and reviewable.
-- Tradeoff: Slightly more process overhead per repair task.
-
-### Evidence references
-- `AGENTS.md`
-- `docs/architecture/developer_workflow_contract.md`
-- `docs/repair_current_state_template.md`
-
 ## 2026-04-07 — ADR-REPAIR-FREEZE-001: Freeze repair evidence before touching production code
 
 ### Status
