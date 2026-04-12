@@ -2,6 +2,14 @@
 
 CosmoSim is a research codebase with strict expectations for numerical integrity, reproducibility, and auditable interfaces.
 
+## 0) Repo-local repair guardrails (read first)
+
+- Mandatory repair-session rules: [`AGENTS.md`](AGENTS.md)
+- Infrastructure review checklist: [`docs/code_review.md`](docs/code_review.md)
+- Architecture decisions and exceptions: [`docs/architecture/decision_log.md`](docs/architecture/decision_log.md)
+
+If your patch conflicts with these guardrails, resolve the conflict before opening a PR.
+
 ## 1) Required developer workflow
 
 1. Choose the smallest preset that exercises your change.
