@@ -20,11 +20,11 @@ int main() {
   const cosmosim::core::FrozenConfig frozen =
       cosmosim::core::loadFrozenConfigFromString(stream.str(), "test_reference_workflow_end_to_end");
 
-  cosmosim::core::ReferenceWorkflowRunner runner(frozen);
+  cosmosim::workflows::ReferenceWorkflowRunner runner(frozen);
   const std::filesystem::path output_dir =
       std::filesystem::temp_directory_path() / "cosmosim_reference_workflow_test";
-  const cosmosim::core::ReferenceWorkflowReport report =
-      runner.run(output_dir, cosmosim::core::ReferenceWorkflowOptions{.write_outputs = false});
+  const cosmosim::workflows::ReferenceWorkflowReport report =
+      runner.run(output_dir, cosmosim::workflows::ReferenceWorkflowOptions{.write_outputs = false});
 
   assert(report.config_compatible);
   assert(report.schema_compatible);

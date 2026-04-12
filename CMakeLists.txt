@@ -180,6 +180,8 @@ add_library(cosmosim_parallel STATIC
   src/parallel/distributed_memory.cpp)
 add_library(cosmosim_utils STATIC
   src/utils/utils_module.cpp)
+add_library(cosmosim_workflows STATIC
+  src/workflows/reference_workflow.cpp)
 
 set(COSMOSIM_MODULE_LIBS
   cosmosim_gravity
@@ -189,7 +191,8 @@ set(COSMOSIM_MODULE_LIBS
   cosmosim_io
   cosmosim_analysis
   cosmosim_parallel
-  cosmosim_utils)
+  cosmosim_utils
+  cosmosim_workflows)
 
 foreach(module_lib IN LISTS COSMOSIM_MODULE_LIBS)
   target_include_directories(${module_lib}
@@ -205,6 +208,12 @@ foreach(module_lib IN LISTS COSMOSIM_MODULE_LIBS)
     set_property(TARGET ${module_lib} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
   endif()
 endforeach()
+
+target_link_libraries(cosmosim_workflows
+  PUBLIC
+    cosmosim_analysis
+    cosmosim_io
+    cosmosim_physics)
 
 if(COSMOSIM_ENABLE_MPI)
   target_link_libraries(cosmosim_parallel PUBLIC MPI::MPI_CXX)
@@ -523,6 +532,13 @@ if(COSMOSIM_ENABLE_TESTS)
     @ONLY)
   add_test(NAME integration_docs_scaffold
            COMMAND ${CMAKE_COMMAND} -P "${CMAKE_BINARY_DIR}/test_docs_scaffold.cmake")
+
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/integration/test_core_dependency_direction.cmake.in"
+    "${CMAKE_BINARY_DIR}/test_core_dependency_direction.cmake"
+    @ONLY)
+  add_test(NAME integration_core_dependency_direction
+           COMMAND ${CMAKE_COMMAND} -P "${CMAKE_BINARY_DIR}/test_core_dependency_direction.cmake")
 
   configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/integration/test_release_readiness_artifacts.cmake.in"
