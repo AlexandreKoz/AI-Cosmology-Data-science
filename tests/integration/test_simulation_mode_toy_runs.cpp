@@ -17,8 +17,8 @@ void requireOrThrow(bool condition, const std::string& message) {
 void testPeriodicToyRunPolicyAndGhosts() {
   cosmosim::core::SimulationConfig config;
   config.mode.mode = cosmosim::core::SimulationMode::kCosmoCube;
-  config.mode.hydro_boundary = "periodic";
-  config.mode.gravity_boundary = "periodic";
+  config.mode.hydro_boundary = cosmosim::core::ModeHydroBoundary::kPeriodic;
+  config.mode.gravity_boundary = cosmosim::core::ModeGravityBoundary::kPeriodic;
 
   const auto policy = cosmosim::core::buildModePolicy(config.mode);
   cosmosim::core::validateModePolicy(config, policy);
@@ -47,8 +47,8 @@ void testPeriodicToyRunPolicyAndGhosts() {
 void testIsolatedToyRunPolicyAndGhosts() {
   cosmosim::core::SimulationConfig config;
   config.mode.mode = cosmosim::core::SimulationMode::kIsolatedGalaxy;
-  config.mode.hydro_boundary = "open";
-  config.mode.gravity_boundary = "isolated_monopole";
+  config.mode.hydro_boundary = cosmosim::core::ModeHydroBoundary::kOpen;
+  config.mode.gravity_boundary = cosmosim::core::ModeGravityBoundary::kIsolatedMonopole;
 
   const auto policy = cosmosim::core::buildModePolicy(config.mode);
   cosmosim::core::validateModePolicy(config, policy);
@@ -99,8 +99,8 @@ void testIsolatedToyRunPolicyAndGhosts() {
 void testModeValidationRejectsBoundaryMismatch() {
   cosmosim::core::SimulationConfig config;
   config.mode.mode = cosmosim::core::SimulationMode::kCosmoCube;
-  config.mode.hydro_boundary = "periodic";
-  config.mode.gravity_boundary = "isolated_monopole";
+  config.mode.hydro_boundary = cosmosim::core::ModeHydroBoundary::kPeriodic;
+  config.mode.gravity_boundary = cosmosim::core::ModeGravityBoundary::kIsolatedMonopole;
 
   const auto policy = cosmosim::core::buildModePolicy(config.mode);
   bool threw = false;

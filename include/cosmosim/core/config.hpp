@@ -15,6 +15,45 @@ enum class SimulationMode {
   kIsolatedCluster,
 };
 
+enum class GravitySolver {
+  kTreePm,
+};
+
+enum class HydroSolver {
+  kGodunovFv,
+};
+
+enum class CoordinateFrame {
+  kComoving,
+  kPhysical,
+};
+
+enum class ModeHydroBoundary {
+  kAuto,
+  kPeriodic,
+  kOpen,
+  kReflective,
+};
+
+enum class ModeGravityBoundary {
+  kAuto,
+  kPeriodic,
+  kIsolatedMonopole,
+};
+
+enum class FeedbackMode {
+  kThermal,
+  kKinetic,
+  kMomentum,
+  kThermalKineticMomentum,
+};
+
+enum class FeedbackVariant {
+  kNone,
+  kDelayedCooling,
+  kStochastic,
+};
+
 struct CosmologyConfig {
   double omega_matter = 0.315;
   double omega_lambda = 0.685;
@@ -32,8 +71,8 @@ struct NumericsConfig {
   int hierarchical_max_rung = 12;
   int amr_max_level = 10;
   double gravity_softening_kpc_comoving = 1.0;
-  std::string gravity_solver = "treepm";
-  std::string hydro_solver = "godunov_fv";
+  GravitySolver gravity_solver = GravitySolver::kTreePm;
+  HydroSolver hydro_solver = HydroSolver::kGodunovFv;
 };
 
 struct PhysicsConfig {
@@ -54,8 +93,8 @@ struct PhysicsConfig {
   double sf_min_star_particle_mass_code = 0.1;
   bool sf_stochastic_spawning = true;
   std::uint64_t sf_random_seed = 123456789ull;
-  std::string fb_mode = "thermal_kinetic_momentum";
-  std::string fb_variant = "none";
+  FeedbackMode fb_mode = FeedbackMode::kThermalKineticMomentum;
+  FeedbackVariant fb_variant = FeedbackVariant::kNone;
   bool fb_use_returned_mass_budget = true;
   double fb_epsilon_thermal = 0.6;
   double fb_epsilon_kinetic = 0.3;
@@ -130,7 +169,7 @@ struct UnitsConfig {
   std::string length_unit = "mpc";
   std::string mass_unit = "msun";
   std::string velocity_unit = "km_s";
-  std::string coordinate_frame = "comoving";
+  CoordinateFrame coordinate_frame = CoordinateFrame::kComoving;
 };
 
 struct ModeConfig {
@@ -138,8 +177,8 @@ struct ModeConfig {
   std::string ic_file = "ics.hdf5";
   bool zoom_high_res_region = false;
   std::string zoom_region_file;
-  std::string hydro_boundary = "auto";
-  std::string gravity_boundary = "auto";
+  ModeHydroBoundary hydro_boundary = ModeHydroBoundary::kAuto;
+  ModeGravityBoundary gravity_boundary = ModeGravityBoundary::kAuto;
 };
 
 struct CompatibilityConfig {
@@ -195,5 +234,12 @@ void writeNormalizedConfigSnapshot(
     const std::filesystem::path& run_directory);
 
 [[nodiscard]] std::string modeToString(SimulationMode mode);
+[[nodiscard]] std::string gravitySolverToString(GravitySolver solver);
+[[nodiscard]] std::string hydroSolverToString(HydroSolver solver);
+[[nodiscard]] std::string coordinateFrameToString(CoordinateFrame frame);
+[[nodiscard]] std::string modeHydroBoundaryToString(ModeHydroBoundary boundary);
+[[nodiscard]] std::string modeGravityBoundaryToString(ModeGravityBoundary boundary);
+[[nodiscard]] std::string feedbackModeToString(FeedbackMode mode);
+[[nodiscard]] std::string feedbackVariantToString(FeedbackVariant variant);
 
 }  // namespace cosmosim::core

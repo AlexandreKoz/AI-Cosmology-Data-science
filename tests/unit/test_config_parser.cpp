@@ -89,6 +89,26 @@ void testInvalidEnumFails() {
   assert(threw);
 }
 
+void testInvalidTypedPolicyEnumsFail() {
+  const std::string bad_solver = "[mode]\nmode = zoom_in\n[numerics]\ngravity_solver = spectral_magic\n";
+  bool threw = false;
+  try {
+    (void)cosmosim::core::loadFrozenConfigFromString(bad_solver, "bad_solver");
+  } catch (const cosmosim::core::ConfigError&) {
+    threw = true;
+  }
+  assert(threw);
+
+  const std::string bad_frame = "[mode]\nmode = zoom_in\n[units]\ncoordinate_frame = weird\n";
+  threw = false;
+  try {
+    (void)cosmosim::core::loadFrozenConfigFromString(bad_frame, "bad_frame");
+  } catch (const cosmosim::core::ConfigError&) {
+    threw = true;
+  }
+  assert(threw);
+}
+
 void testBoundaryModeValidation() {
   const std::string bad_config = "[mode]\nmode = cosmo_cube\nhydro_boundary = open\n";
   bool threw = false;
@@ -102,8 +122,8 @@ void testBoundaryModeValidation() {
   const std::string isolated_ok =
       "[mode]\nmode = isolated_cluster\nhydro_boundary = reflective\ngravity_boundary = isolated_monopole\n";
   const auto frozen = cosmosim::core::loadFrozenConfigFromString(isolated_ok, "isolated_ok");
-  assert(frozen.config.mode.hydro_boundary == "reflective");
-  assert(frozen.config.mode.gravity_boundary == "isolated_monopole");
+  assert(frozen.config.mode.hydro_boundary == cosmosim::core::ModeHydroBoundary::kReflective);
+  assert(frozen.config.mode.gravity_boundary == cosmosim::core::ModeGravityBoundary::kIsolatedMonopole);
 }
 
 void testDefaultsCanonicalizationAndDeterminism() {
@@ -118,10 +138,26 @@ void testDefaultsCanonicalizationAndDeterminism() {
   const auto frozen_second = cosmosim::core::loadFrozenConfigFromString(second, "second");
 
   assert(frozen_first.config.physics.enable_cooling);
-  assert(frozen_first.config.physics.fb_mode == "thermal_kinetic_momentum");
+  assert(frozen_first.config.physics.fb_mode == cosmosim::core::FeedbackMode::kThermalKineticMomentum);
   assert(frozen_first.config.parallel.deterministic_reduction);
   assert(frozen_first.normalized_text == frozen_second.normalized_text);
   assert(frozen_first.provenance.config_hash_hex == frozen_second.provenance.config_hash_hex);
+}
+
+void testDeprecatedAliasesAndCanonicalCollision() {
+  const std::string alias_only = "mode = isolated_galaxy\n";
+  const auto frozen = cosmosim::core::loadFrozenConfigFromString(alias_only, "alias_only");
+  assert(frozen.config.mode.mode == cosmosim::core::SimulationMode::kIsolatedGalaxy);
+  assert(!frozen.provenance.deprecation_warnings.empty());
+
+  const std::string conflicting = "mode = zoom_in\nmode.mode = cosmo_cube\n";
+  bool threw = false;
+  try {
+    (void)cosmosim::core::loadFrozenConfigFromString(conflicting, "alias_conflict");
+  } catch (const cosmosim::core::ConfigError&) {
+    threw = true;
+  }
+  assert(threw);
 }
 
 void testFeedbackConfigKeysAndValidation() {
@@ -135,8 +171,8 @@ fb_stochastic_event_probability = 1.0
 fb_neighbor_count = 4
 )";
   const auto frozen = cosmosim::core::loadFrozenConfigFromString(good_text, "feedback_good");
-  assert(frozen.config.physics.fb_mode == "momentum");
-  assert(frozen.config.physics.fb_variant == "stochastic");
+  assert(frozen.config.physics.fb_mode == cosmosim::core::FeedbackMode::kMomentum);
+  assert(frozen.config.physics.fb_variant == cosmosim::core::FeedbackVariant::kStochastic);
   assert(frozen.config.physics.fb_neighbor_count == 4);
 
   const std::string bad_text = "[mode]\nmode = zoom_in\n[physics]\nfb_mode = hidden_magic\n";
@@ -214,8 +250,10 @@ int main() {
   testMissingValueFails();
   testUnknownKeysFailUnlessCompatibilityEnabled();
   testInvalidEnumFails();
+  testInvalidTypedPolicyEnumsFail();
   testBoundaryModeValidation();
   testDefaultsCanonicalizationAndDeterminism();
+  testDeprecatedAliasesAndCanonicalCollision();
   testFeedbackConfigKeysAndValidation();
   testBlackHoleAgnConfigKeysAndValidation();
   testTracerConfigKeysAndValidation();

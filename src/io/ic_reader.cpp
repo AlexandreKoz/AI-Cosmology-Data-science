@@ -485,7 +485,7 @@ IcReadResult readGadgetArepoHdf5Ic(
           coordinates_chunk,
           result.report.schema.scale_factor,
           "comoving",
-          config.units.coordinate_frame == "physical" ? "physical" : "comoving");
+          config.units.coordinate_frame == core::CoordinateFrame::kPhysical ? "physical" : "comoving");
       convertFieldToCodeUnits(coordinates_chunk, source_units, target_units, "length");
 
       if (!velocities_name.empty()) {
