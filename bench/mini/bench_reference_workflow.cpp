@@ -13,21 +13,21 @@ int main() {
 
   const cosmosim::core::FrozenConfig frozen =
       cosmosim::core::loadFrozenConfigFromString(stream.str(), "bench_reference_workflow");
-  cosmosim::core::ReferenceWorkflowRunner runner(frozen);
+  cosmosim::workflows::ReferenceWorkflowRunner runner(frozen);
 
   const auto execution = cosmosim::bench::defaultExecutionConfig(1, 3);
   const std::filesystem::path run_directory = std::filesystem::temp_directory_path() / "cosmosim_bench_reference_workflow";
 
   for (std::size_t iter = 0; iter < execution.warmup_iterations; ++iter) {
     (void)runner.run(run_directory / ("warmup_" + std::to_string(iter)),
-                     cosmosim::core::ReferenceWorkflowOptions{.step_index = iter, .write_outputs = false});
+                     cosmosim::workflows::ReferenceWorkflowOptions{.step_index = iter, .write_outputs = false});
   }
 
   const auto begin = cosmosim::bench::BenchmarkClock::now();
-  cosmosim::core::ReferenceWorkflowReport last_report;
+  cosmosim::workflows::ReferenceWorkflowReport last_report;
   for (std::size_t iter = 0; iter < execution.measurement_iterations; ++iter) {
     last_report = runner.run(run_directory / ("measure_" + std::to_string(iter)),
-                             cosmosim::core::ReferenceWorkflowOptions{.step_index = iter, .write_outputs = false});
+                             cosmosim::workflows::ReferenceWorkflowOptions{.step_index = iter, .write_outputs = false});
   }
   const auto end = cosmosim::bench::BenchmarkClock::now();
 

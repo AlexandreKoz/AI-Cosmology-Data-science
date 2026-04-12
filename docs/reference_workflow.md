@@ -1,6 +1,12 @@
 # Reference workflow integration pass
 
-This document defines the integrated reference workflow that wires configuration parsing, generated IC ingest, integrator stage sequencing, diagnostics callbacks, star-formation and black-hole callbacks, and profiler report generation through one auditable entry point (`core::ReferenceWorkflowRunner`).
+This document defines the integrated reference workflow that wires configuration parsing, generated IC ingest, integrator stage sequencing, diagnostics callbacks, star-formation and black-hole callbacks, and profiler report generation through one auditable entry point (`workflows::ReferenceWorkflowRunner`).
+
+## Layer placement and boundary
+
+- The concrete assembly lives in `include/cosmosim/workflows/reference_workflow.hpp` and `src/workflows/reference_workflow.cpp`.
+- `core/` provides only typed state/config/stage contracts (`StepOrchestrator`, `IntegratorState`, etc.) and does not assemble analysis/I/O/physics callbacks.
+- Transitional compatibility aliases are exposed in `namespace cosmosim::core` from the workflow header so existing callers can migrate incrementally without pulling workflow assembly back into `core/`.
 
 ## Scope and conservative assumptions
 

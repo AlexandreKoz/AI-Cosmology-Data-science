@@ -112,3 +112,20 @@ Interpretation:
 
 See `docs/repair_closeout_report.md` for the stop/go decision.
 Current state is **STOP** until HDF5 (and then PM/HDF5/FFTW) preset build+test commands pass on the intended feature paths.
+
+## 7) Core boundary repair (reference workflow assembly)
+
+Commands:
+
+```bash
+ctest --test-dir build/cpu-only-debug --output-on-failure -R "integration_core_dependency_direction|integration_reference_workflow"
+```
+
+Observed:
+
+- Core dependency-direction guard passes and fails fast on forbidden upward includes in `include/cosmosim/core/**` and `src/core/**`.
+- Reference workflow integration smoke test still passes after moving assembly to `workflows/`.
+
+Interpretation:
+
+- The architecture boundary leak from `core` into analysis/I/O/physics workflow assembly is repaired while keeping smoke behavior intact.

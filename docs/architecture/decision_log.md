@@ -1,5 +1,25 @@
 # Architecture decision log
 
+## 2026-04-12 — ADR-REPAIR-BOUNDARY-005: Keep reference workflow assembly outside `core/`
+
+### Status
+Accepted (infrastructure boundary repair)
+
+### Context
+`include/cosmosim/core/reference_workflow.hpp` assembled diagnostics, physics callbacks, and I/O roundtrips directly from the `core/` include tree. This inverted the dependency direction guardrail (`core` foundational; higher layers depend on it).
+
+### Decision
+- Move concrete reference workflow assembly into a dedicated integration layer:
+  - `include/cosmosim/workflows/reference_workflow.hpp`
+  - `src/workflows/reference_workflow.cpp`
+- Keep `core/` focused on abstract stage contracts and typed simulation state.
+- Add a dependency-direction guard test that fails when `include/cosmosim/core/` or `src/core/` includes `analysis/`, `io/`, `physics/`, `workflows/`, or `app/` headers.
+
+### Consequences
+- Positive: Restores one-way dependency flow from higher orchestration layers into `core`.
+- Positive: Makes boundary regressions auditable in CI via an explicit guard test.
+- Tradeoff: Callers should migrate toward `cosmosim::workflows` naming; transitional aliases remain for now.
+
 ## 2026-04-07 — ADR-REPAIR-FREEZE-001: Freeze repair evidence before touching production code
 
 ### Status
