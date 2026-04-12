@@ -10,8 +10,8 @@ namespace {
 void testModePolicyDefaultsAndValidation() {
   cosmosim::core::SimulationConfig config;
   config.mode.mode = cosmosim::core::SimulationMode::kCosmoCube;
-  config.mode.hydro_boundary = "auto";
-  config.mode.gravity_boundary = "auto";
+  config.mode.hydro_boundary = cosmosim::core::ModeHydroBoundary::kAuto;
+  config.mode.gravity_boundary = cosmosim::core::ModeGravityBoundary::kAuto;
 
   const auto policy = cosmosim::core::buildModePolicy(config.mode);
   assert(policy.hydro_boundary == cosmosim::core::BoundaryCondition::kPeriodic);
@@ -22,7 +22,7 @@ void testModePolicyDefaultsAndValidation() {
 void testInvalidModeOverrideFailsValidation() {
   cosmosim::core::SimulationConfig config;
   config.mode.mode = cosmosim::core::SimulationMode::kZoomIn;
-  config.mode.hydro_boundary = "open";
+  config.mode.hydro_boundary = cosmosim::core::ModeHydroBoundary::kOpen;
 
   bool threw = false;
   try {

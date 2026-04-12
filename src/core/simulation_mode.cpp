@@ -169,28 +169,29 @@ ModePolicy buildModePolicy(const ModeConfig& mode_config) {
       break;
   }
 
-  if (!mode_config.hydro_boundary.empty()) {
-    const auto& raw = mode_config.hydro_boundary;
-    if (raw == "periodic") {
+  switch (mode_config.hydro_boundary) {
+    case ModeHydroBoundary::kPeriodic:
       policy.hydro_boundary = BoundaryCondition::kPeriodic;
-    } else if (raw == "open") {
+      break;
+    case ModeHydroBoundary::kOpen:
       policy.hydro_boundary = BoundaryCondition::kOpen;
-    } else if (raw == "reflective") {
+      break;
+    case ModeHydroBoundary::kReflective:
       policy.hydro_boundary = BoundaryCondition::kReflective;
-    } else if (raw != "auto") {
-      throw ConfigError("key 'mode.hydro_boundary': invalid value '" + raw + "'");
-    }
+      break;
+    case ModeHydroBoundary::kAuto:
+      break;
   }
 
-  if (!mode_config.gravity_boundary.empty()) {
-    const auto& raw = mode_config.gravity_boundary;
-    if (raw == "periodic") {
+  switch (mode_config.gravity_boundary) {
+    case ModeGravityBoundary::kPeriodic:
       policy.gravity_boundary = GravityBoundaryModel::kPeriodicPoisson;
-    } else if (raw == "isolated_monopole") {
+      break;
+    case ModeGravityBoundary::kIsolatedMonopole:
       policy.gravity_boundary = GravityBoundaryModel::kIsolatedMonopoleDirichlet;
-    } else if (raw != "auto") {
-      throw ConfigError("key 'mode.gravity_boundary': invalid value '" + raw + "'");
-    }
+      break;
+    case ModeGravityBoundary::kAuto:
+      break;
   }
 
   return policy;

@@ -18,6 +18,22 @@ Authoritative structures: `include/cosmosim/core/config.hpp` and `src/core/confi
 - Stable naming constraints apply to `output.output_stem`, `output.restart_stem`, and diagnostics/halo stems.
 - Mode policy is validated before runtime (`mode.mode`, boundary selection, zoom requirements).
 
+## External strings vs internal typed contract
+
+- User-facing param files remain string-based (`gravity_solver=treepm`, `fb_mode=momentum`, etc.).
+- During freeze, policy-like values are converted to enums in `core::SimulationConfig`:
+  - `units.coordinate_frame` -> `core::CoordinateFrame`
+  - `numerics.gravity_solver` / `numerics.hydro_solver` -> `core::GravitySolver` / `core::HydroSolver`
+  - `mode.hydro_boundary` / `mode.gravity_boundary` -> `core::ModeHydroBoundary` / `core::ModeGravityBoundary`
+  - `physics.fb_mode` / `physics.fb_variant` -> `core::FeedbackMode` / `core::FeedbackVariant`
+- Free-form strings remain strings (paths, labels, stems, and table locations).
+
+## Central key registry
+
+- `src/core/config.cpp` contains a single authoritative key registry that records canonical keys and defaults.
+- The same source file also defines deprecated alias mappings.
+- Unknown-key checks and alias translation both use this registry path during freeze.
+
 ## Key groups
 
 ## `schema_version`

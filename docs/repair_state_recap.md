@@ -129,3 +129,21 @@ Observed:
 Interpretation:
 
 - The architecture boundary leak from `core` into analysis/I/O/physics workflow assembly is repaired while keeping smoke behavior intact.
+
+## 8) Configuration-contract hardening (typed freeze path)
+
+Commands:
+
+```bash
+ctest --test-dir build/cpu-only-debug --output-on-failure -R "unit_config_parser|unit_simulation_mode|integration_simulation_mode_toy_runs"
+```
+
+Observed:
+
+- Policy-like config values are parsed from param strings, then frozen into typed enums for solver selection, coordinate frame, mode boundaries, and feedback mode/variant.
+- Unknown key handling and deprecated alias mapping use a centralized key/alias registry in `src/core/config.cpp`.
+- Unit/integration coverage validates unknown key rejection, alias behavior, invalid enum rejection, and deterministic normalized config/hash behavior.
+
+Interpretation:
+
+- String-driven runtime policy drift is reduced after freeze while preserving param-style UX and deterministic normalized-config provenance semantics.

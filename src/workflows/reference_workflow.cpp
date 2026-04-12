@@ -49,8 +49,9 @@ ReferenceWorkflowReport ReferenceWorkflowRunner::run(
 
   ReferenceWorkflowReport report;
   report.config_compatible =
-      config.numerics.gravity_solver == "treepm" && config.numerics.hydro_solver == "godunov_fv" &&
-      config.units.coordinate_frame == "comoving";
+      config.numerics.gravity_solver == core::GravitySolver::kTreePm &&
+      config.numerics.hydro_solver == core::HydroSolver::kGodunovFv &&
+      config.units.coordinate_frame == core::CoordinateFrame::kComoving;
   report.schema_compatible =
       config.schema_version == 1 && io::gadgetArepoSchemaMap().schema_version == 1 &&
       io::isRestartSchemaCompatible(io::restartSchema().version);

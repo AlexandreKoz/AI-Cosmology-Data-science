@@ -366,22 +366,31 @@ StellarFeedbackConfig makeStellarFeedbackConfig(const core::PhysicsConfig& physi
   config.stochastic_event_probability = physics_config.fb_stochastic_event_probability;
   config.random_seed = physics_config.fb_random_seed;
 
-  if (physics_config.fb_mode == "thermal") {
-    config.mode = StellarFeedbackMode::kThermal;
-  } else if (physics_config.fb_mode == "kinetic") {
-    config.mode = StellarFeedbackMode::kKinetic;
-  } else if (physics_config.fb_mode == "momentum") {
-    config.mode = StellarFeedbackMode::kMomentum;
-  } else {
-    config.mode = StellarFeedbackMode::kThermalKineticMomentum;
+  switch (physics_config.fb_mode) {
+    case core::FeedbackMode::kThermal:
+      config.mode = StellarFeedbackMode::kThermal;
+      break;
+    case core::FeedbackMode::kKinetic:
+      config.mode = StellarFeedbackMode::kKinetic;
+      break;
+    case core::FeedbackMode::kMomentum:
+      config.mode = StellarFeedbackMode::kMomentum;
+      break;
+    case core::FeedbackMode::kThermalKineticMomentum:
+      config.mode = StellarFeedbackMode::kThermalKineticMomentum;
+      break;
   }
 
-  if (physics_config.fb_variant == "delayed_cooling") {
-    config.variant = StellarFeedbackVariant::kDelayedCooling;
-  } else if (physics_config.fb_variant == "stochastic") {
-    config.variant = StellarFeedbackVariant::kStochastic;
-  } else {
-    config.variant = StellarFeedbackVariant::kNone;
+  switch (physics_config.fb_variant) {
+    case core::FeedbackVariant::kDelayedCooling:
+      config.variant = StellarFeedbackVariant::kDelayedCooling;
+      break;
+    case core::FeedbackVariant::kStochastic:
+      config.variant = StellarFeedbackVariant::kStochastic;
+      break;
+    case core::FeedbackVariant::kNone:
+      config.variant = StellarFeedbackVariant::kNone;
+      break;
   }
 
   return config;
