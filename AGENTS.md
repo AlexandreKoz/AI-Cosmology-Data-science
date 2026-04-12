@@ -35,3 +35,22 @@ These rules are mandatory for infrastructure repair sessions and are enforced in
 - Reviewer checklist: `docs/code_review.md`
 - Architecture decisions: `docs/architecture/decision_log.md`
 - Contributor workflow: `CONTRIBUTING.md`
+## 8) Reproducibility and determinism discipline
+- Do not weaken normalized config dumps, provenance completeness, output naming stability, or deterministic test modes.
+- Any repair affecting config loading, snapshot/restart writing, scheduling, or rank coordination must state reproducibility impact explicitly.
+- If deterministic behavior changes, document why, update tests, and record the tolerance or migration policy.
+
+## 9) Interface and config-key anti-drift rules
+- Do not introduce shadow interfaces that duplicate existing config, state, I/O, or scheduler responsibilities.
+- No new config keys without typed validation, normalized dump support, docs updates, and tests.
+- No renamed or repurposed config keys without compatibility behavior or explicit migration notes.
+- New or changed public interfaces under `include/cosmosim/**` must define ownership, invariants, and caller-visible behavior.
+
+## 10) Test-floor for infrastructure repair
+- Infrastructure repairs must add targeted tests unless existing tests already cover the repaired invariant and that coverage is named explicitly.
+- “Builds successfully” is not sufficient evidence for schema, config, provenance, restart, or interface repairs.
+- TODO stubs, disabled assertions, or weakened checks do not count as closure.
+
+## 11) Repair-state maintenance
+- After any merged infrastructure repair, update `docs/repair_state_recap.md` and `docs/repair_open_issues.md` if the patch changes current repo assumptions, closes an issue, or changes remaining blockers.
+- Architecture exceptions or dependency-boundary changes must be recorded in `docs/architecture/decision_log.md`.
